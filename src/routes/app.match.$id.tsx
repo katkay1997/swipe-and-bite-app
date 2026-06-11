@@ -24,8 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
-import { estimateMealNutrition, searchGroceryStores } from "@/server/match.functions";
-import { enrichMealRecipe } from "@/server/recipe.functions";
+import { estimateMealNutrition, searchGroceryStores } from "@/lib/match.functions";
+import { enrichMealRecipe } from "@/lib/recipe.functions";
 import {
   getSpiceLevel,
   getCulinaryLevel,

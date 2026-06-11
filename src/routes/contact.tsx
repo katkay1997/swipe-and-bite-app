@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/Logo";
 import { useServerFn } from "@tanstack/react-start";
-import { submitContactMessage } from "@/server/contact.functions";
+import { submitContactMessage } from "@/lib/contact.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";

@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
-import { enrichMealRecipe } from "@/server/recipe.functions";
+import { enrichMealRecipe } from "@/lib/recipe.functions";
 import { getSpiceLevel } from "@/lib/meal-helpers";
 import placeholderImg from "@/assets/meal-placeholder.jpg";
 

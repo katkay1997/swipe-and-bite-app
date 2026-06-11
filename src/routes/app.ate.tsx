@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
-import { estimateMealNutrition } from "@/server/match.functions";
+import { estimateMealNutrition } from "@/lib/match.functions";
 
 type PinRow = Tables<"pins"> & { meal: Tables<"meals"> | null };
 type Nutrition = {
