@@ -14,16 +14,347 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          archived: boolean
+          id: string
+          matched_at: string
+          meal_id: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          id?: string
+          matched_at?: string
+          meal_id: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          id?: string
+          matched_at?: string
+          meal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meals: {
+        Row: {
+          affordability: string | null
+          calories: number | null
+          created_at: string
+          cuisine: string | null
+          description: string | null
+          health_flags: string[]
+          id: string
+          image_url: string | null
+          ingredients: Json
+          instructions: string | null
+          is_alcohol: boolean
+          macros: Json
+          meal_time: string[]
+          name: string
+          prep_minutes: number | null
+          source: string
+          source_id: string | null
+          tags: string[]
+          tools: string[]
+        }
+        Insert: {
+          affordability?: string | null
+          calories?: number | null
+          created_at?: string
+          cuisine?: string | null
+          description?: string | null
+          health_flags?: string[]
+          id?: string
+          image_url?: string | null
+          ingredients?: Json
+          instructions?: string | null
+          is_alcohol?: boolean
+          macros?: Json
+          meal_time?: string[]
+          name: string
+          prep_minutes?: number | null
+          source: string
+          source_id?: string | null
+          tags?: string[]
+          tools?: string[]
+        }
+        Update: {
+          affordability?: string | null
+          calories?: number | null
+          created_at?: string
+          cuisine?: string | null
+          description?: string | null
+          health_flags?: string[]
+          id?: string
+          image_url?: string | null
+          ingredients?: Json
+          instructions?: string | null
+          is_alcohol?: boolean
+          macros?: Json
+          meal_time?: string[]
+          name?: string
+          prep_minutes?: number | null
+          source?: string
+          source_id?: string | null
+          tags?: string[]
+          tools?: string[]
+        }
+        Relationships: []
+      }
+      pins: {
+        Row: {
+          created_at: string
+          id: string
+          meal_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meal_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pins_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preferences: {
+        Row: {
+          allergies: string[]
+          budget_range: string | null
+          cook_time_minutes: number | null
+          dietary_restrictions: string[]
+          eating_goal: string | null
+          glp1_user: boolean
+          health_conditions: string[]
+          kitchen_access: string | null
+          living_situation: string | null
+          religion: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allergies?: string[]
+          budget_range?: string | null
+          cook_time_minutes?: number | null
+          dietary_restrictions?: string[]
+          eating_goal?: string | null
+          glp1_user?: boolean
+          health_conditions?: string[]
+          kitchen_access?: string | null
+          living_situation?: string | null
+          religion?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allergies?: string[]
+          budget_range?: string | null
+          cook_time_minutes?: number | null
+          dietary_restrictions?: string[]
+          eating_goal?: string | null
+          glp1_user?: boolean
+          health_conditions?: string[]
+          kitchen_access?: string | null
+          living_situation?: string | null
+          religion?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          color_blind: boolean
+          created_at: string
+          display_name: string | null
+          food_bio: string | null
+          id: string
+          onboarding_complete: boolean
+          reduce_motion: boolean
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          color_blind?: boolean
+          created_at?: string
+          display_name?: string | null
+          food_bio?: string | null
+          id: string
+          onboarding_complete?: boolean
+          reduce_motion?: boolean
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          color_blind?: boolean
+          created_at?: string
+          display_name?: string | null
+          food_bio?: string | null
+          id?: string
+          onboarding_complete?: boolean
+          reduce_motion?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["report_kind"]
+          meal_id: string | null
+          message: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["report_kind"]
+          meal_id?: string | null
+          message?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["report_kind"]
+          meal_id?: string | null
+          message?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swipes: {
+        Row: {
+          created_at: string
+          direction: Database["public"]["Enums"]["swipe_direction"]
+          id: string
+          meal_id: string
+          mode: Database["public"]["Enums"]["swipe_mode"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: Database["public"]["Enums"]["swipe_direction"]
+          id?: string
+          meal_id: string
+          mode: Database["public"]["Enums"]["swipe_mode"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: Database["public"]["Enums"]["swipe_direction"]
+          id?: string
+          meal_id?: string
+          mode?: Database["public"]["Enums"]["swipe_mode"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swipes_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "user" | "admin"
+      report_kind: "bad_match" | "missing_restriction" | "other"
+      swipe_direction: "left" | "right"
+      swipe_mode: "takeout" | "cook"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +481,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["user", "admin"],
+      report_kind: ["bad_match", "missing_restriction", "other"],
+      swipe_direction: ["left", "right"],
+      swipe_mode: ["takeout", "cook"],
+    },
   },
 } as const
