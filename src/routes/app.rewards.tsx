@@ -62,6 +62,7 @@ function RewardsPage() {
 
   useEffect(() => {
     if (!userId) return;
+    const uid = userId;
     void load();
     async function load() {
       setLoading(true);
