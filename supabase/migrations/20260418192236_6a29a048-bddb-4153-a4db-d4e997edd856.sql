@@ -1,0 +1,1 @@
+update profiles set onboarding_complete = true where id = (select id from auth.users where email = 'testuser+e2e@example.com');

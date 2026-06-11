@@ -1,0 +1,1 @@
+ALTER TABLE public.pins DROP CONSTRAINT IF EXISTS pins_user_id_meal_id_key;

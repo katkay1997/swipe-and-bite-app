@@ -1,0 +1,568 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  public: {
+    Tables: {
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          archived: boolean
+          id: string
+          matched_at: string
+          meal_id: string
+          mode: Database["public"]["Enums"]["swipe_mode"]
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          id?: string
+          matched_at?: string
+          meal_id: string
+          mode?: Database["public"]["Enums"]["swipe_mode"]
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          id?: string
+          matched_at?: string
+          meal_id?: string
+          mode?: Database["public"]["Enums"]["swipe_mode"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meals: {
+        Row: {
+          affordability: string | null
+          calories: number | null
+          created_at: string
+          cuisine: string | null
+          description: string | null
+          health_flags: string[]
+          id: string
+          image_url: string | null
+          ingredients: Json
+          instructions: string | null
+          is_alcohol: boolean
+          macros: Json
+          meal_time: string[]
+          name: string
+          nutrition: Json
+          prep_minutes: number | null
+          source: string
+          source_id: string | null
+          tags: string[]
+          tools: string[]
+        }
+        Insert: {
+          affordability?: string | null
+          calories?: number | null
+          created_at?: string
+          cuisine?: string | null
+          description?: string | null
+          health_flags?: string[]
+          id?: string
+          image_url?: string | null
+          ingredients?: Json
+          instructions?: string | null
+          is_alcohol?: boolean
+          macros?: Json
+          meal_time?: string[]
+          name: string
+          nutrition?: Json
+          prep_minutes?: number | null
+          source: string
+          source_id?: string | null
+          tags?: string[]
+          tools?: string[]
+        }
+        Update: {
+          affordability?: string | null
+          calories?: number | null
+          created_at?: string
+          cuisine?: string | null
+          description?: string | null
+          health_flags?: string[]
+          id?: string
+          image_url?: string | null
+          ingredients?: Json
+          instructions?: string | null
+          is_alcohol?: boolean
+          macros?: Json
+          meal_time?: string[]
+          name?: string
+          nutrition?: Json
+          prep_minutes?: number | null
+          source?: string
+          source_id?: string | null
+          tags?: string[]
+          tools?: string[]
+        }
+        Relationships: []
+      }
+      pins: {
+        Row: {
+          created_at: string
+          id: string
+          meal_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meal_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pins_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preferences: {
+        Row: {
+          allergies: string[]
+          budget_range: string | null
+          cook_time_minutes: number | null
+          dietary_restrictions: string[]
+          eating_goal: string | null
+          glp1_user: boolean
+          health_conditions: string[]
+          kitchen_access: string | null
+          living_situation: string | null
+          religion: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allergies?: string[]
+          budget_range?: string | null
+          cook_time_minutes?: number | null
+          dietary_restrictions?: string[]
+          eating_goal?: string | null
+          glp1_user?: boolean
+          health_conditions?: string[]
+          kitchen_access?: string | null
+          living_situation?: string | null
+          religion?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allergies?: string[]
+          budget_range?: string | null
+          cook_time_minutes?: number | null
+          dietary_restrictions?: string[]
+          eating_goal?: string | null
+          glp1_user?: boolean
+          health_conditions?: string[]
+          kitchen_access?: string | null
+          living_situation?: string | null
+          religion?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          color_blind: boolean
+          created_at: string
+          display_name: string | null
+          food_bio: string | null
+          id: string
+          onboarding_complete: boolean
+          reduce_motion: boolean
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          color_blind?: boolean
+          created_at?: string
+          display_name?: string | null
+          food_bio?: string | null
+          id: string
+          onboarding_complete?: boolean
+          reduce_motion?: boolean
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          color_blind?: boolean
+          created_at?: string
+          display_name?: string | null
+          food_bio?: string | null
+          id?: string
+          onboarding_complete?: boolean
+          reduce_motion?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recipes: {
+        Row: {
+          attempted_at: string | null
+          cook_minutes: number | null
+          created_at: string
+          enriched_at: string | null
+          enrichment_error: string | null
+          enrichment_status: string
+          image_url: string | null
+          ingredients: Json
+          meal_id: string
+          prep_minutes: number | null
+          servings: number | null
+          source_domain: string | null
+          source_url: string | null
+          steps: Json
+          summary: string | null
+          title: string | null
+          total_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          attempted_at?: string | null
+          cook_minutes?: number | null
+          created_at?: string
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: string
+          image_url?: string | null
+          ingredients?: Json
+          meal_id: string
+          prep_minutes?: number | null
+          servings?: number | null
+          source_domain?: string | null
+          source_url?: string | null
+          steps?: Json
+          summary?: string | null
+          title?: string | null
+          total_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attempted_at?: string | null
+          cook_minutes?: number | null
+          created_at?: string
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: string
+          image_url?: string | null
+          ingredients?: Json
+          meal_id?: string
+          prep_minutes?: number | null
+          servings?: number | null
+          source_domain?: string | null
+          source_url?: string | null
+          steps?: Json
+          summary?: string | null
+          title?: string | null
+          total_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: true
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["report_kind"]
+          meal_id: string | null
+          message: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["report_kind"]
+          meal_id?: string | null
+          message?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["report_kind"]
+          meal_id?: string | null
+          message?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      swipes: {
+        Row: {
+          created_at: string
+          direction: Database["public"]["Enums"]["swipe_direction"]
+          id: string
+          meal_id: string
+          mode: Database["public"]["Enums"]["swipe_mode"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: Database["public"]["Enums"]["swipe_direction"]
+          id?: string
+          meal_id: string
+          mode: Database["public"]["Enums"]["swipe_mode"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: Database["public"]["Enums"]["swipe_direction"]
+          id?: string
+          meal_id?: string
+          mode?: Database["public"]["Enums"]["swipe_mode"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "swipes_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      app_role: "user" | "admin"
+      report_kind: "bad_match" | "missing_restriction" | "other"
+      swipe_direction: "left" | "right"
+      swipe_mode: "takeout" | "cook"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["user", "admin"],
+      report_kind: ["bad_match", "missing_restriction", "other"],
+      swipe_direction: ["left", "right"],
+      swipe_mode: ["takeout", "cook"],
+    },
+  },
+} as const

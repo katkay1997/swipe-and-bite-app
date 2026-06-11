@@ -9,38 +9,231 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LegalDisclaimerRouteImport } from './routes/legal.disclaimer'
+import { Route as AppSwipeRouteImport } from './routes/app.swipe'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppRewardsRouteImport } from './routes/app.rewards'
+import { Route as AppOnboardingRouteImport } from './routes/app.onboarding'
+import { Route as AppModeRouteImport } from './routes/app.mode'
+import { Route as AppMatchesRouteImport } from './routes/app.matches'
+import { Route as AppAteRouteImport } from './routes/app.ate'
+import { Route as AppMatchIdRouteImport } from './routes/app.match.$id'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalDisclaimerRoute = LegalDisclaimerRouteImport.update({
+  id: '/legal/disclaimer',
+  path: '/legal/disclaimer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppSwipeRoute = AppSwipeRouteImport.update({
+  id: '/swipe',
+  path: '/swipe',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRewardsRoute = AppRewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOnboardingRoute = AppOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModeRoute = AppModeRouteImport.update({
+  id: '/mode',
+  path: '/mode',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMatchesRoute = AppMatchesRouteImport.update({
+  id: '/matches',
+  path: '/matches',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAteRoute = AppAteRouteImport.update({
+  id: '/ate',
+  path: '/ate',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMatchIdRoute = AppMatchIdRouteImport.update({
+  id: '/match/$id',
+  path: '/match/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/app/ate': typeof AppAteRoute
+  '/app/matches': typeof AppMatchesRoute
+  '/app/mode': typeof AppModeRoute
+  '/app/onboarding': typeof AppOnboardingRoute
+  '/app/rewards': typeof AppRewardsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/swipe': typeof AppSwipeRoute
+  '/legal/disclaimer': typeof LegalDisclaimerRoute
+  '/app/match/$id': typeof AppMatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/app/ate': typeof AppAteRoute
+  '/app/matches': typeof AppMatchesRoute
+  '/app/mode': typeof AppModeRoute
+  '/app/onboarding': typeof AppOnboardingRoute
+  '/app/rewards': typeof AppRewardsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/swipe': typeof AppSwipeRoute
+  '/legal/disclaimer': typeof LegalDisclaimerRoute
+  '/app/match/$id': typeof AppMatchIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/app/ate': typeof AppAteRoute
+  '/app/matches': typeof AppMatchesRoute
+  '/app/mode': typeof AppModeRoute
+  '/app/onboarding': typeof AppOnboardingRoute
+  '/app/rewards': typeof AppRewardsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/swipe': typeof AppSwipeRoute
+  '/legal/disclaimer': typeof LegalDisclaimerRoute
+  '/app/match/$id': typeof AppMatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/contact'
+    | '/reset-password'
+    | '/app/ate'
+    | '/app/matches'
+    | '/app/mode'
+    | '/app/onboarding'
+    | '/app/rewards'
+    | '/app/settings'
+    | '/app/swipe'
+    | '/legal/disclaimer'
+    | '/app/match/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/contact'
+    | '/reset-password'
+    | '/app/ate'
+    | '/app/matches'
+    | '/app/mode'
+    | '/app/onboarding'
+    | '/app/rewards'
+    | '/app/settings'
+    | '/app/swipe'
+    | '/legal/disclaimer'
+    | '/app/match/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/contact'
+    | '/reset-password'
+    | '/app/ate'
+    | '/app/matches'
+    | '/app/mode'
+    | '/app/onboarding'
+    | '/app/rewards'
+    | '/app/settings'
+    | '/app/swipe'
+    | '/legal/disclaimer'
+    | '/app/match/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  ContactRoute: typeof ContactRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  LegalDisclaimerRoute: typeof LegalDisclaimerRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +241,103 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/disclaimer': {
+      id: '/legal/disclaimer'
+      path: '/legal/disclaimer'
+      fullPath: '/legal/disclaimer'
+      preLoaderRoute: typeof LegalDisclaimerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/swipe': {
+      id: '/app/swipe'
+      path: '/swipe'
+      fullPath: '/app/swipe'
+      preLoaderRoute: typeof AppSwipeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rewards': {
+      id: '/app/rewards'
+      path: '/rewards'
+      fullPath: '/app/rewards'
+      preLoaderRoute: typeof AppRewardsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/onboarding': {
+      id: '/app/onboarding'
+      path: '/onboarding'
+      fullPath: '/app/onboarding'
+      preLoaderRoute: typeof AppOnboardingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/mode': {
+      id: '/app/mode'
+      path: '/mode'
+      fullPath: '/app/mode'
+      preLoaderRoute: typeof AppModeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/matches': {
+      id: '/app/matches'
+      path: '/matches'
+      fullPath: '/app/matches'
+      preLoaderRoute: typeof AppMatchesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ate': {
+      id: '/app/ate'
+      path: '/ate'
+      fullPath: '/app/ate'
+      preLoaderRoute: typeof AppAteRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/match/$id': {
+      id: '/app/match/$id'
+      path: '/match/$id'
+      fullPath: '/app/match/$id'
+      preLoaderRoute: typeof AppMatchIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppAteRoute: typeof AppAteRoute
+  AppMatchesRoute: typeof AppMatchesRoute
+  AppModeRoute: typeof AppModeRoute
+  AppOnboardingRoute: typeof AppOnboardingRoute
+  AppRewardsRoute: typeof AppRewardsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppSwipeRoute: typeof AppSwipeRoute
+  AppMatchIdRoute: typeof AppMatchIdRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAteRoute: AppAteRoute,
+  AppMatchesRoute: AppMatchesRoute,
+  AppModeRoute: AppModeRoute,
+  AppOnboardingRoute: AppOnboardingRoute,
+  AppRewardsRoute: AppRewardsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppSwipeRoute: AppSwipeRoute,
+  AppMatchIdRoute: AppMatchIdRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRoute,
+  ContactRoute: ContactRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  LegalDisclaimerRoute: LegalDisclaimerRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
