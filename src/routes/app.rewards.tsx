@@ -62,6 +62,7 @@ function RewardsPage() {
 
   useEffect(() => {
     if (!userId) return;
+    const uid = userId;
     void load();
     async function load() {
       setLoading(true);
@@ -69,7 +70,7 @@ function RewardsPage() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("badges")
-        .eq("id", userId)
+        .eq("id", uid)
         .maybeSingle();
       if (profile?.badges) {
         setEarned((profile.badges as BadgeId[]) ?? []);
@@ -78,7 +79,7 @@ function RewardsPage() {
       const { count } = await supabase
         .from("ate")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", userId);
+        .eq("user_id", uid);
       setCookedCount(count ?? 0);
       setLoading(false);
     }
