@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      ate: {
+        Row: {
+          created_at: string
+          id: string
+          meal_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meal_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meal_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ate_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_messages: {
         Row: {
           created_at: string
@@ -44,6 +73,7 @@ export type Database = {
           id: string
           matched_at: string
           meal_id: string
+          mode: string
           user_id: string
         }
         Insert: {
@@ -51,6 +81,7 @@ export type Database = {
           id?: string
           matched_at?: string
           meal_id: string
+          mode?: string
           user_id: string
         }
         Update: {
@@ -58,6 +89,7 @@ export type Database = {
           id?: string
           matched_at?: string
           meal_id?: string
+          mode?: string
           user_id?: string
         }
         Relationships: [
@@ -86,6 +118,7 @@ export type Database = {
           macros: Json
           meal_time: string[]
           name: string
+          nutrition: Json
           prep_minutes: number | null
           source: string
           source_id: string | null
@@ -107,6 +140,7 @@ export type Database = {
           macros?: Json
           meal_time?: string[]
           name: string
+          nutrition?: Json
           prep_minutes?: number | null
           source: string
           source_id?: string | null
@@ -128,6 +162,7 @@ export type Database = {
           macros?: Json
           meal_time?: string[]
           name?: string
+          nutrition?: Json
           prep_minutes?: number | null
           source?: string
           source_id?: string | null
@@ -213,6 +248,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          badges: string[]
           color_blind: boolean
           created_at: string
           display_name: string | null
@@ -224,6 +260,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          badges?: string[]
           color_blind?: boolean
           created_at?: string
           display_name?: string | null
@@ -235,6 +272,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          badges?: string[]
           color_blind?: boolean
           created_at?: string
           display_name?: string | null
@@ -245,6 +283,77 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      recipes: {
+        Row: {
+          attempted_at: string | null
+          cook_minutes: number | null
+          created_at: string
+          enriched_at: string | null
+          enrichment_error: string | null
+          enrichment_status: string
+          image_url: string | null
+          ingredients: Json
+          meal_id: string
+          prep_minutes: number | null
+          servings: number | null
+          source_domain: string | null
+          source_url: string | null
+          steps: Json
+          summary: string | null
+          title: string | null
+          total_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          attempted_at?: string | null
+          cook_minutes?: number | null
+          created_at?: string
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: string
+          image_url?: string | null
+          ingredients?: Json
+          meal_id: string
+          prep_minutes?: number | null
+          servings?: number | null
+          source_domain?: string | null
+          source_url?: string | null
+          steps?: Json
+          summary?: string | null
+          title?: string | null
+          total_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attempted_at?: string | null
+          cook_minutes?: number | null
+          created_at?: string
+          enriched_at?: string | null
+          enrichment_error?: string | null
+          enrichment_status?: string
+          image_url?: string | null
+          ingredients?: Json
+          meal_id?: string
+          prep_minutes?: number | null
+          servings?: number | null
+          source_domain?: string | null
+          source_url?: string | null
+          steps?: Json
+          summary?: string | null
+          title?: string | null
+          total_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: true
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reports: {
         Row: {
