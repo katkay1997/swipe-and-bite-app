@@ -1,0 +1,1 @@
+delete from auth.users where email = 'testuser+e2e@example.com';

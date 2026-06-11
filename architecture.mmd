@@ -1,0 +1,138 @@
+---
+title: Swipe & Bite — Full Architecture
+---
+
+flowchart TD
+
+  %% ─── USER ENTRY ───────────────────────────────────────────────
+  subgraph ENTRY["Entry Points"]
+    HOME["/ — Landing Page"]
+    AUTH["/auth — Sign In / Sign Up"]
+    RESET["/reset-password"]
+    CONTACT["/contact"]
+    LEGAL["/legal/disclaimer"]
+  end
+
+  %% ─── ONBOARDING ───────────────────────────────────────────────
+  subgraph ONBOARD["Onboarding"]
+    ONBOARDING["/app/onboarding\nDietary · Allergies · Health · Goals"]
+  end
+
+  %% ─── CORE APP ─────────────────────────────────────────────────
+  subgraph APP["App (requires auth)"]
+    MODE["/app/mode\nCook or Takeout?"]
+    SWIPE["/app/swipe\nSwipe Deck"]
+    MATCHES["/app/matches\nSaved Matches Grid"]
+    MATCH_DETAIL["/app/match/:id\nMeal Detail"]
+    ATE["/app/ate\nEat Log + Nutrition"]
+    SETTINGS["/app/settings\nProfile & Preferences"]
+  end
+
+  %% ─── SERVER FUNCTIONS ─────────────────────────────────────────
+  subgraph SERVER["Server Functions (TanStack Start)"]
+    FN_NUTRITION["estimateMealNutrition()\nCheck cache → AI estimate → Cache result"]
+    FN_TAKEOUT["searchTakeoutNearby()\nBuild query → Search → Return results"]
+    FN_CONTACT["submitContactMessage()\nValidate → Rate limit → Insert"]
+  end
+
+  %% ─── EXTERNAL APIs ────────────────────────────────────────────
+  subgraph EXTERNAL["External APIs"]
+    GEMINI["Google Gemini 2.5 Flash\nvia Lovable AI Gateway"]
+    TAVILY["Tavily Search API\nRestaurant discovery"]
+    UBER["Uber Eats / DoorDash\n/ Grubhub (deep links)"]
+  end
+
+  %% ─── SUPABASE ─────────────────────────────────────────────────
+  subgraph SUPABASE["Supabase (PostgreSQL + Auth + Storage)"]
+    direction TB
+    AUTH_DB["auth.users\n(Supabase managed)"]
+    PROFILES["profiles\nid · display_name · avatar_url\ncolor_blind · reduce_motion\nonboarding_complete"]
+    PREFS["preferences\nuser_id · dietary_restrictions\nallergies · health_conditions\neating_goal · budget_range"]
+    MEALS["meals\nid · source · name · cuisine\ningredients · instructions\ncalories · macros · nutrition\nmeal_time · tags · health_flags"]
+    SWIPES_DB["swipes\nuser_id · meal_id\ndirection · mode · created_at"]
+    MATCHES_DB["matches\nuser_id · meal_id\nmode · matched_at · archived"]
+    PINS["pins\nuser_id · meal_id · created_at"]
+    REPORTS["reports\nuser_id · meal_id · kind · message"]
+    CONTACT_DB["contact_messages\nuser_id · email · message"]
+    USER_ROLES["user_roles\nuser_id · role (user | admin)"]
+    STORAGE["Storage: avatars bucket\n(per-user folder, public)"]
+  end
+
+  %% ─── USER FLOWS ───────────────────────────────────────────────
+  HOME -->|"Get Started"| AUTH
+  HOME --> LEGAL
+  HOME --> CONTACT
+
+  AUTH -->|"Sign up (new user)"| ONBOARDING
+  AUTH -->|"Sign in (returning)"| MODE
+  RESET --> AUTH
+
+  ONBOARDING -->|"Save preferences + onboarding_complete"| MODE
+  ONBOARDING --> PREFS
+  ONBOARDING --> PROFILES
+
+  MODE -->|"Cook"| SWIPE
+  MODE -->|"Takeout"| SWIPE
+
+  SWIPE -->|"Query meals (filtered by time, unswiped)"| MEALS
+  SWIPE -->|"Right swipe → insert"| SWIPES_DB
+  SWIPE -->|"Right swipe → insert"| MATCHES_DB
+  SWIPE -->|"View matches"| MATCHES
+
+  MATCHES -->|"Click meal"| MATCH_DETAIL
+  MATCHES -->|"Delete / archive"| MATCHES_DB
+
+  MATCH_DETAIL -->|"Cook mode"| FN_NUTRITION
+  MATCH_DETAIL -->|"Takeout mode"| FN_TAKEOUT
+  MATCH_DETAIL -->|"Takeout mode links"| UBER
+  MATCH_DETAIL -->|"'Ate it' → insert pin"| PINS
+  MATCH_DETAIL -->|"'Ate it'"| ATE
+
+  ATE -->|"Query today's pins + meals"| PINS
+  ATE -->|"Estimate missing nutrition"| FN_NUTRITION
+
+  SETTINGS -->|"Update profile"| PROFILES
+  SETTINGS -->|"Update preferences"| PREFS
+  SETTINGS -->|"Upload avatar"| STORAGE
+
+  CONTACT -->|"Submit message"| FN_CONTACT
+
+  %% ─── SERVER → EXTERNAL ────────────────────────────────────────
+  FN_NUTRITION -->|"1. Check cached nutrition"| MEALS
+  FN_NUTRITION -->|"2. If not cached → call AI"| GEMINI
+  FN_NUTRITION -->|"3. Cache result back"| MEALS
+
+  FN_TAKEOUT --> TAVILY
+
+  FN_CONTACT -->|"Rate-limit check + insert"| CONTACT_DB
+
+  %% ─── DATABASE RELATIONSHIPS ───────────────────────────────────
+  AUTH_DB -->|"trigger: auto-create"| PROFILES
+  AUTH_DB -->|"trigger: auto-create"| USER_ROLES
+  AUTH_DB -->|"trigger: auto-create"| PREFS
+
+  PROFILES -->|"FK: id → auth.users.id"| AUTH_DB
+  PREFS -->|"FK: user_id → auth.users.id"| AUTH_DB
+  SWIPES_DB -->|"FK: user_id"| AUTH_DB
+  SWIPES_DB -->|"FK: meal_id"| MEALS
+  MATCHES_DB -->|"FK: user_id"| AUTH_DB
+  MATCHES_DB -->|"FK: meal_id"| MEALS
+  PINS -->|"FK: user_id"| AUTH_DB
+  PINS -->|"FK: meal_id"| MEALS
+  REPORTS -->|"FK: user_id"| AUTH_DB
+  REPORTS -->|"FK: meal_id (nullable)"| MEALS
+  CONTACT_DB -->|"FK: user_id (nullable)"| AUTH_DB
+  USER_ROLES -->|"FK: user_id"| AUTH_DB
+
+  %% ─── STYLES ───────────────────────────────────────────────────
+  classDef page        fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+  classDef server      fill:#fef9c3,stroke:#ca8a04,color:#713f12
+  classDef external    fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef db          fill:#f3e8ff,stroke:#9333ea,color:#3b0764
+  classDef entry       fill:#ffe4e6,stroke:#e11d48,color:#4c0519
+
+  class HOME,AUTH,RESET,CONTACT,LEGAL entry
+  class MODE,SWIPE,MATCHES,MATCH_DETAIL,ATE,SETTINGS,ONBOARDING page
+  class FN_NUTRITION,FN_TAKEOUT,FN_CONTACT server
+  class GEMINI,TAVILY,UBER external
+  class AUTH_DB,PROFILES,PREFS,MEALS,SWIPES_DB,MATCHES_DB,PINS,REPORTS,CONTACT_DB,USER_ROLES,STORAGE db

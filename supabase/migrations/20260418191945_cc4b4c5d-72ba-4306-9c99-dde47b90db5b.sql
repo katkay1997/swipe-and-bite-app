@@ -1,0 +1,1 @@
+update auth.users set email_confirmed_at = now() where email = 'testuser+e2e@example.com';

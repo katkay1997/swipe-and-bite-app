@@ -1,0 +1,1 @@
+update auth.users set encrypted_password = crypt('TestPass123!', gen_salt('bf')) where email = 'testuser+e2e@example.com';

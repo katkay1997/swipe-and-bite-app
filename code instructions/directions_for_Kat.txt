@@ -1,0 +1,426 @@
+============================================================
+  DIRECTIONS FOR KAT — A Beginner's Map of the SwipeBite App
+============================================================
+
+This document explains, in plain language, what each programming
+language does in this project, which files use it, and where to
+look first when something breaks. It also covers the third-party
+services the app depends on.
+
+NOTE: The folder this file lives in ("code instructions") is for
+documentation only. Nothing in here changes how the app runs.
+
+------------------------------------------------------------
+  TABLE OF CONTENTS
+------------------------------------------------------------
+  1. TypeScript / React 19
+  2. SQL (PostgreSQL)
+  3. CSS (Tailwind v4)
+  4. Services & Performance (Supabase / Lovable Cloud, Lovable AI,
+     and a note on Tavily)
+  5. Quick troubleshooting checklist
+
+
+============================================================
+  1. TYPESCRIPT / REACT 19
+============================================================
+
+WHAT IT IS
+----------
+TypeScript is JavaScript with type-checking added on top. React 19
+is the library that paints the user interface (UI) on the screen
+using small reusable pieces called "components". Together, they
+power everything the user sees and clicks in this app.
+
+WHAT THE CODE IS USED FOR IN THIS PROJECT
+-----------------------------------------
+- Drawing every screen (landing page, sign-in, swipe screen,
+  matches, settings, etc.).
+- Reacting to user actions (button clicks, swipe gestures,
+  form submissions).
+- Calling the database to read meals, save swipes, and store
+  user preferences.
+- Routing (deciding which page to show for which URL).
+- Animations (the heartbeat icon, page transitions, etc.).
+
+FILE EXTENSIONS YOU WILL SEE
+----------------------------
+  .ts   = TypeScript with no UI inside
+  .tsx  = TypeScript that ALSO contains JSX (the HTML-looking
+          markup that becomes UI)
+
+WHERE THE TYPESCRIPT/REACT FILES LIVE
+-------------------------------------
+- src/routes/                 → Each file = one URL/page
+    index.tsx                 → Landing page ("/")
+    auth.tsx                  → Sign-in / sign-up page
+    reset-password.tsx        → Password reset
+    contact.tsx               → Contact form
+    legal.disclaimer.tsx      → Legal page
+    app.tsx                   → Layout wrapper for the
+                                logged-in section
+    app.onboarding.tsx        → First-time setup
+    app.mode.tsx              → "Cook" vs "Take-out" picker
+    app.ate.tsx               → Meal-time / dessert slider
+    app.swipe.tsx             → The swipe-the-cards screen
+    app.matches.tsx           → List of matched meals
+    app.match.$id.tsx         → A single match's recipe page
+    app.settings.tsx          → User settings & avatar upload
+    __root.tsx                → The shell wrapping every page
+                                (also mounts the toast popups)
+
+- src/components/             → Reusable UI pieces
+    Logo.tsx                  → The SwipeBite logo
+    preferences-form.tsx      → The dietary preferences form
+    ui/                       → All the small shadcn/ui building
+                                blocks (button, dialog, input,
+                                card, slider, etc.)
+
+- src/hooks/                  → Reusable logic, no UI
+    use-auth.ts               → Tracks "is the user logged in?"
+    use-mobile.tsx            → Detects mobile screen size
+
+- src/lib/                    → Small helper utilities
+    a11y.ts                   → Accessibility helpers
+    device-id.ts              → Anonymous device identifier
+    utils.ts                  → Class-name helpers
+
+- src/server/                 → "Server functions" — TypeScript
+                                that runs on the server, not in
+                                the browser. They safely talk to
+                                the database with elevated rights.
+    contact.functions.ts      → Saves contact form messages
+    match.functions.ts        → Records swipes, creates matches
+    recipe.functions.ts       → Fetches & enriches recipe data
+
+- src/integrations/supabase/  → Auto-generated database glue
+    client.ts                 → Browser database client
+    client.server.ts          → Server-only admin client
+    auth-middleware.ts        → Verifies login tokens on the server
+    types.ts                  → Auto-generated TypeScript types
+                                describing every database table
+    *** DO NOT EDIT these four files by hand ***
+
+- src/router.tsx              → Wires all routes together
+- src/routeTree.gen.ts        → AUTO-GENERATED, do not edit
+- src/start.ts                → App entry point
+
+FILES WHERE BAD CODE WILL BREAK THE APP THE FASTEST
+---------------------------------------------------
+These are the "load-bearing walls". A typo here usually means a
+white screen or build failure:
+
+  src/router.tsx              → Crash = no routing at all
+  src/routes/__root.tsx       → Crash = every page breaks,
+                                toasts stop showing
+  src/routes/app.tsx          → Crash = entire logged-in area
+                                stops working
+  src/hooks/use-auth.ts       → Crash = login state breaks
+  src/server/match.functions.ts → Bad code = swiping/matching breaks
+  src/integrations/supabase/* → Editing these manually = type
+                                errors everywhere
+  src/routeTree.gen.ts        → Never edit; regenerated on build
+
+LIBRARIES USED (the big ones)
+-----------------------------
+  react, react-dom            → The UI library itself
+  @tanstack/react-router      → URL routing (file-based)
+  @tanstack/react-start       → Server-side rendering + server
+                                functions framework
+  @tanstack/react-query       → Caches data fetched from the DB
+  @supabase/supabase-js       → Talks to the Supabase database
+  framer-motion               → Animations (heartbeat, slide-in,
+                                page transitions)
+  lucide-react                → Icon set (Heart, Settings, etc.)
+  sonner                      → Toast pop-ups ("Invalid credentials")
+  react-hook-form + zod       → Forms and input validation
+  tailwind-merge, clsx,
+    class-variance-authority  → Smart Tailwind class handling
+  embla-carousel-react        → The landing-page carousel
+  date-fns                    → Date formatting
+
+WHICH FILES HANDLE USER INTERACTION
+-----------------------------------
+  src/routes/auth.tsx         → Sign-in / sign-up forms,
+                                "Invalid credentials" toast
+  src/routes/app.swipe.tsx    → The swipe gesture (Yum/Nope)
+  src/routes/app.ate.tsx      → Meal-time + dessert slider
+  src/routes/app.mode.tsx     → Cook vs Take-out toggle
+  src/routes/app.settings.tsx → Avatar upload + preferences
+  src/components/preferences-form.tsx → Allergies, diet, etc.
+  src/routes/contact.tsx      → Contact-us form
+
+WHAT MAKES THINGS MOVE (animations)
+-----------------------------------
+The heartbeat is a CSS keyframe animation defined in
+src/styles.css (the @keyframes heartbeat block) and applied via
+the utility class `animate-heartbeat` (also in src/styles.css).
+Add `class="animate-heartbeat"` to any element to make it pulse.
+
+The class .rm on <html> turns ALL animations off (used for the
+"reduce motion" accessibility setting). That rule also lives in
+src/styles.css.
+
+Bigger motion — the landing page floating up/down, cards sliding
+when you swipe, page fades — is done with the framer-motion
+library inside the .tsx files (look for <motion.div>, <motion.img>,
+animate={...}, transition={...} in:
+  src/routes/index.tsx        → Landing page motion
+  src/routes/app.swipe.tsx    → Swipe card animation
+  src/routes/app.matches.tsx  → Match list entrance
+).
+
+
+============================================================
+  2. SQL (PostgreSQL)
+============================================================
+
+WHAT IT IS
+----------
+SQL is the language used to talk to the database — to create
+tables, read rows, insert rows, and set security rules. The
+specific flavor used here is PostgreSQL.
+
+DATABASE PROVIDER
+-----------------
+The database is PostgreSQL, hosted by SUPABASE and surfaced
+through the Lovable platform as "Lovable Cloud". You don't run
+your own database server — Supabase does.
+
+WHERE THE SQL LIVES
+-------------------
+All SQL files are inside:
+  supabase/migrations/
+
+Each file is timestamped (e.g. 20260421182608_xxxx.sql) and is
+applied in order. They build the database tables, set up
+security rules (RLS), create helper functions, and configure
+file-storage buckets.
+
+The most recent two migrations (the security hardening you just
+applied) are:
+  20260421182608_*.sql  → Locks down avatar + recipe-image uploads
+  20260421182633_*.sql  → Restricts bucket listing to logged-in
+                          users only
+
+The TABLES the app uses (defined across these migrations):
+  profiles          → User profile (name, avatar, settings)
+  preferences       → Dietary restrictions, allergies, budget
+  meals             → The food items shown in swipes
+  recipes           → Full recipe info linked to a meal
+  swipes            → Every left/right swipe a user makes
+  matches           → Meals the user swiped right on
+  pins              → Saved/favorited meals
+  reports           → User reports of bad matches
+  contact_messages  → Contact form submissions
+  user_roles        → Who is an admin vs a normal user
+
+You CAN'T edit src/integrations/supabase/types.ts by hand — it is
+auto-generated FROM the SQL migrations. If you change tables in
+SQL, the types file regenerates automatically.
+
+SECURITY MEASURES IN THE DATABASE
+---------------------------------
+1. ROW-LEVEL SECURITY (RLS)
+   Every table has RLS turned ON. RLS means each row in the table
+   has rules deciding who is allowed to read or write it. Example:
+   a user can only SELECT their own row in the `preferences`
+   table — never anyone else's.
+
+2. SEPARATE ROLES TABLE
+   Roles ("user", "admin") are kept in their OWN table called
+   `user_roles`, NOT on the profiles table. This prevents a user
+   from editing their own profile to make themselves an admin.
+
+3. SECURITY-DEFINER FUNCTION: has_role()
+   A PostgreSQL function (defined in the migrations) that safely
+   checks "does this user have role X?" without triggering
+   recursive RLS loops. Used inside RLS policies.
+
+4. STORAGE BUCKET POLICIES
+   The avatars bucket: a user can only upload/update/delete files
+   inside a folder named with their own user-id, and only image
+   MIME types (jpeg/png/webp/gif) are accepted.
+   The recipe-images bucket: only admins can write.
+   Listing files in either bucket requires being logged in.
+
+5. AUTH MIDDLEWARE (server-side)
+   File: src/integrations/supabase/auth-middleware.ts
+   Every server function that needs a logged-in user runs through
+   this middleware. It checks the Authorization header has a
+   valid Bearer token, verifies it with Supabase, and rejects the
+   request with HTTP 401 if anything is missing or invalid.
+
+6. SERVICE-ROLE CLIENT IS SERVER-ONLY
+   File: src/integrations/supabase/client.server.ts
+   This client bypasses RLS — so it lives in a `.server.ts` file
+   that the bundler will NEVER ship to the browser.
+
+7. INPUT VALIDATION
+   File-upload code in src/routes/app.settings.tsx checks the
+   MIME type and a 5 MB size limit before sending the file. The
+   contact form and other forms use Zod schemas (see
+   src/server/contact.functions.ts) to validate data on the
+   server before it reaches the database.
+
+FILES THAT HANDLE SECURITY
+--------------------------
+  supabase/migrations/*.sql                          → RLS rules
+  src/integrations/supabase/auth-middleware.ts       → Token check
+  src/integrations/supabase/client.server.ts         → Admin client
+  src/server/contact.functions.ts                    → Zod input
+  src/server/match.functions.ts                      → Zod input
+  src/server/recipe.functions.ts                     → Zod input
+  src/routes/app.settings.tsx                        → Upload guards
+  src/hooks/use-auth.ts                              → Login state
+
+
+============================================================
+  3. CSS (with Tailwind CSS v4)
+============================================================
+
+WHAT IT IS
+----------
+CSS describes how things LOOK — colors, spacing, fonts, layout,
+shadows, animations. Tailwind v4 is a system where most styling
+is done with short class names directly in the .tsx files
+(e.g. `className="bg-primary text-white p-4 rounded-lg"`).
+
+THE CSS FILES IN THIS PROJECT
+-----------------------------
+There is essentially ONE central stylesheet:
+
+  src/styles.css
+
+That single file:
+  - Imports Google Fonts (Fraunces for headings, DM Sans for body)
+  - Imports Tailwind itself
+  - Imports the tw-animate-css helper library
+  - Defines the entire design-token system using CSS variables
+    (colors, gradients, shadows, radii, fonts) inside :root
+  - Defines a `.cb` class for the color-blind palette
+  - Defines a `.dark` class for dark mode
+  - Defines `.rm` to disable animations (reduce motion)
+  - Defines @keyframes heartbeat (the pulsing icon)
+  - Defines utility classes like .gradient-romance,
+    .shadow-heart, .text-romance, .animate-heartbeat,
+    .hearts-bg
+
+WHICH FILES HANDLE BACKGROUND COLOR & FONTS
+-------------------------------------------
+- src/styles.css is the ONE source of truth for:
+    • Global background color  (--background variable, applied
+      to <body> in the @layer base block)
+    • Global text color        (--foreground variable)
+    • Heading font             (--font-heading variable, set to
+      'Fraunces')
+    • Body font                (font-family on <body>, set to
+      'DM Sans')
+    • Brand colors             (--primary, --primary-glow,
+      --accent-warm, etc.)
+
+- Individual components OVERRIDE these only by using semantic
+  Tailwind classes that point back to those variables, e.g.:
+    bg-background      → uses --background
+    text-foreground    → uses --foreground
+    bg-primary         → uses --primary
+    font-display       → uses --font-heading
+
+  IMPORTANT RULE FROM THE DESIGN SYSTEM:
+  Don't write raw colors like `bg-white` or `text-[#ee6464]` in
+  components. Always use the semantic tokens (bg-primary,
+  text-foreground, etc.) so dark mode and color-blind mode work.
+
+- components.json + tailwindcss + @tailwindcss/vite (in
+  package.json) configure Tailwind. There is no longer a
+  tailwind.config.js — Tailwind v4 is configured INSIDE
+  src/styles.css using the @theme block.
+
+
+============================================================
+  4. SERVICES & PERFORMANCE
+============================================================
+
+SUPABASE (a.k.a. "Lovable Cloud" inside the Lovable platform)
+-------------------------------------------------------------
+WHAT IT DOES:
+  - Hosts the PostgreSQL database
+  - Handles user authentication (sign-up, sign-in, password reset,
+    Google OAuth)
+  - Stores uploaded files (avatars, recipe images) in "buckets"
+  - Runs the security policies (RLS) we defined in the SQL
+    migrations
+
+HOW IT AFFECTS PERFORMANCE:
+  - Most database calls happen through cached React Query hooks,
+    so repeated reads are FAST.
+  - Server functions in src/server/* run close to the database
+    and only return the data the page needs — keeps payloads
+    small.
+  - Avatar/recipe images are served from Supabase's public CDN,
+    which is fast worldwide.
+  - If RLS policies are written inefficiently they can slow
+    queries down — keep policies simple and index lookup columns.
+  - Free-tier Supabase has rate limits; if the app suddenly feels
+    slow, check Lovable Cloud → Logs.
+
+LOVABLE AI GATEWAY
+------------------
+WHAT IT DOES:
+  - When the app needs an AI model (e.g. enriching a recipe), it
+    calls the Lovable AI Gateway, which transparently proxies to
+    Google Gemini or OpenAI models. No API key needed.
+
+HOW IT AFFECTS PERFORMANCE:
+  - AI calls are the slowest part of any flow (often 1-5 seconds).
+    The app uses them sparingly and caches results back into the
+    `recipes` table so they only happen once per recipe.
+
+TAVILY
+------
+Tavily is a web-search API that some Lovable projects use to
+power a "search the web" feature. **This project does not
+currently use Tavily** — there is no Tavily client, no Tavily
+API key in the project, and no server function that calls it. If
+you ever add web search later, that's the service to look into.
+
+
+============================================================
+  5. QUICK TROUBLESHOOTING CHECKLIST
+============================================================
+
+SYMPTOM: Whole site is white/blank
+  → Look at src/router.tsx and src/routes/__root.tsx first.
+  → Check the browser console for a red error and read the
+    file/line it points to.
+
+SYMPTOM: Logged-in pages crash, public pages fine
+  → Open src/routes/app.tsx and src/hooks/use-auth.ts.
+
+SYMPTOM: "Invalid credentials" toast doesn't appear
+  → Confirm <Toaster /> is mounted in src/routes/__root.tsx.
+
+SYMPTOM: Swiping doesn't create matches
+  → Check src/routes/app.swipe.tsx (UI) and
+    src/server/match.functions.ts (server logic), then look at
+    the swipes/matches RLS policies in supabase/migrations/.
+
+SYMPTOM: Upload fails with "permission denied"
+  → A storage RLS policy is blocking it. See the two newest
+    files in supabase/migrations/.
+
+SYMPTOM: Colors look wrong / dark mode broken
+  → Open src/styles.css. Look at :root and .dark variables.
+
+SYMPTOM: Animation won't play
+  → Check the element has the correct class (e.g.
+    `animate-heartbeat`) AND that <html> does NOT have the .rm
+    class (which kills all animation).
+
+SYMPTOM: Typescript build error in types.ts
+  → DO NOT edit types.ts. The fix is almost always to write a
+    new SQL migration that brings the database back in sync.
+
+============================================================
+  END OF FILE — happy debugging, Kat!
+============================================================

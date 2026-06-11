@@ -1,0 +1,409 @@
+============================================================
+KAT'S ARCHITECTURE MAP
+A friendly guide to how this app is put together
+============================================================
+
+Hi Kat! 👋
+
+This file is a MAP for understanding your app.
+It is NOT a file for editing code.
+Nothing in your project will change because of this document.
+
+Think of it like a tour guide. It walks you through your app
+and points out the important things, so the next time you
+open the code, you can say:
+"Oh! I know what that variable means."
+
+You already have a beginner map that lists your files and
+what languages they use. This map is different — it shows
+how the PIECES fit together inside the code.
+
+------------------------------------------------------------
+QUICK WORD LIST (so nothing scares you)
+------------------------------------------------------------
+
+- Variable: a labeled box that holds a value.
+  Example: const name = "Kat"; — "name" is the box, "Kat" is the value.
+
+- State: a special kind of variable in React that, when it
+  changes, causes the screen to update.
+
+- Component: a reusable chunk of UI written as a function.
+
+- Hook: a special React function whose name starts with "use",
+  like useState or useEffect.
+
+- Database row: one record (one line) in a database table.
+  Like one row in a spreadsheet.
+
+- Query: a question you ask the database, like
+  "give me all meals where meal_time = 'breakfast'".
+
+- Supabase: the service that holds your database, login system,
+  and serverless functions. (In your code it’s often called
+  "Lovable Cloud" when talking to users.)
+
+- SQL: the language used to talk to a database.
+
+- TypeScript: JavaScript with types. Types are little labels
+  that say "this should be a number" or "this should be a string".
+
+------------------------------------------------------------
+1. HOW TO READ VARIABLE NAMES
+------------------------------------------------------------
+
+In this app, variable names usually tell you WHAT they hold.
+If you read the name slowly, you can guess the job.
+
+A few habits to look for:
+
+- Names that start with "is", "has", or "should" usually hold
+  true/false values.
+  Example: isOpen, hasInitial, isLoading.
+
+- Names that end with "s" usually hold a list (an array).
+  Example: meals, swipes, results, options.
+
+- Names like "selected___" usually hold the thing the user
+  chose at this moment.
+  Example: selectedMeal, selectedFilter.
+
+- Names that start with "set" come from React state. They are
+  FUNCTIONS that change a piece of state.
+  Example: setLoading, setDeck, setMatch.
+
+- Names with "Id" at the end are usually IDs from the database.
+  Example: userId, mealId, matchId.
+
+- Names with "Row" at the end usually mean "one record from a
+  database table".
+  Example: MatchRow.
+
+- Names like "handleClick" or "onSubmit" are event handlers —
+  functions that run when the user does something.
+
+Tip: When in doubt, read the name out loud as a sentence.
+"set match" → "I set the match."
+"user allergies" → "the allergies for this user."
+
+------------------------------------------------------------
+2. COMMON VARIABLE PATTERNS
+------------------------------------------------------------
+
+Your app uses some patterns over and over. Learning these
+five is like learning the alphabet of the app.
+
+PATTERN A — Loading flag
+  const [loading, setLoading] = useState(true);
+  Meaning: "Are we still waiting for data?"
+  Use: show a spinner or skeleton until loading is false.
+
+PATTERN B — A list of things from the database
+  const [deck, setDeck] = useState<Meal[]>([]);
+  Meaning: "deck" holds an array of Meal objects.
+  The "[]" at the start means we begin with an empty list.
+
+PATTERN C — A single selected thing
+  const [match, setMatch] = useState<MatchRow | null>(null);
+  Meaning: "match" is either one match record OR nothing yet.
+
+PATTERN D — A simple value the user can change (form input)
+  const [zip, setZip] = useState("");
+  Meaning: a text box that starts empty and updates as the user types.
+
+PATTERN E — A filter / mode picker
+  const [filter, setFilter] = useState<MealTime | null>(null);
+  Meaning: which category is currently active (breakfast, lunch, etc.).
+
+If you see any of these in a new file, you already know
+roughly what is happening.
+
+------------------------------------------------------------
+3. REACT TO DATABASE FLOW
+------------------------------------------------------------
+
+Here is the journey of data, in plain words:
+
+1) The user opens a screen.
+2) A React component shows up on the screen.
+3) Inside that component, useEffect runs once and asks
+   the database for data using "supabase.from(...).select(...)".
+4) The database sends back rows.
+5) The component stores those rows in state with "setSomething(data)".
+6) Because state changed, React re-renders the screen and
+   shows the new data.
+
+When the user does something (like swiping a card), the flow
+goes the other direction:
+
+1) The user clicks or swipes.
+2) An event handler runs (like commitSwipe).
+3) That handler calls "supabase.from('swipes').insert(...)".
+4) Supabase saves the new row in the database.
+5) The handler may also update local state so the UI feels instant.
+
+Picture it as a loop:
+  Screen → Handler → Supabase → Database
+  Database → Supabase → useEffect → State → Screen
+
+------------------------------------------------------------
+4. SUPABASE AND SQL CONNECTION
+------------------------------------------------------------
+
+Supabase wraps your database in a friendly JavaScript helper.
+Each line of Supabase code is really a small SQL query.
+
+Examples from your app:
+
+  supabase.from("meals").select("*").eq("is_alcohol", false)
+  ↓ is basically the SQL ↓
+  SELECT * FROM meals WHERE is_alcohol = false;
+
+  supabase.from("matches").delete().eq("id", id).eq("user_id", userId)
+  ↓ is basically the SQL ↓
+  DELETE FROM matches WHERE id = $id AND user_id = $userId;
+
+  supabase.from("swipes").insert({ user_id: userId, meal_id: meal.id })
+  ↓ is basically the SQL ↓
+  INSERT INTO swipes (user_id, meal_id) VALUES ($userId, $mealId);
+
+So when you see ".from", think TABLE.
+When you see ".select", think "READ rows".
+When you see ".insert", think "ADD a row".
+When you see ".update", think "CHANGE a row".
+When you see ".delete", think "REMOVE a row".
+When you see ".eq", think "WHERE column = value".
+
+The result that comes back is usually shaped like:
+  { data, error }
+- "data" is the rows you asked for.
+- "error" is filled in only if something went wrong.
+
+Always check error first. If error is set, do NOT trust data.
+
+------------------------------------------------------------
+5. IMPORTANT STATE VARIABLES
+------------------------------------------------------------
+
+These are the state variables that show up in many screens.
+Knowing these is like knowing the main characters in a story.
+
+- loading
+  True while waiting for data. False when ready.
+
+- deck
+  The stack of meal cards the user can swipe through.
+
+- history
+  A list of past swipes. Used to allow "rewind".
+
+- match / matchMeal
+  The meal the user just liked enough to be a match.
+
+- mealTime
+  Which meal time is selected: breakfast, lunch, dinner, dessert.
+
+- glutenFree
+  True if the user only wants gluten-free meals.
+
+- filter / filterKey
+  Tells the app which group of meals to show.
+
+- userAllergies
+  A list of foods the user wants to avoid.
+
+- recipe / recipeLoading
+  The full recipe info for a meal, plus its loading flag.
+
+- nutrition
+  Calories, protein, carbs, fats for a meal.
+
+- results / answer / searched
+  Used in the search box on the match screen.
+
+- zip
+  The ZIP code the user types in to find restaurants nearby.
+
+------------------------------------------------------------
+6. IMPORTANT DATA VARIABLES
+------------------------------------------------------------
+
+These hold information that came from (or is going to) the
+database. They are the "nouns" of the app.
+
+- meals          → all the meals available
+- meal           → one single meal
+- swipes         → records of likes/dislikes for the current user
+- matches        → meals the user matched with
+- pins           → meals the user said they actually ate
+- preferences    → the user's settings (like allergies)
+- prefs          → short nickname for preferences
+- userId         → the unique ID of the logged-in user
+- mealId         → the unique ID of one meal
+- matchId        → the unique ID of one match record
+
+If you see one of these names, you can almost always guess
+which database table it came from. The name and the table
+match on purpose. That is a good habit your code follows.
+
+------------------------------------------------------------
+7. IMPORTANT FUNCTION NAMES
+------------------------------------------------------------
+
+Functions in your app usually use VERBS, so the name tells
+you what action happens.
+
+- load            → fetch data from Supabase
+- markAte         → save that the user ate this meal
+- commitSwipe     → save a swipe (like or dislike) to the database
+- handleRewind    → undo the last swipe
+- runSearch       → start a search
+- remove          → delete one row
+- clearAll        → delete many rows for this user
+
+When you see a function whose name starts with "handle",
+expect it to run because of a user action (click, submit, swipe).
+
+When you see "load", "fetch", or "get", expect it to read data.
+
+When you see "save", "insert", "update", "delete", "remove",
+or "commit", expect it to change data.
+
+------------------------------------------------------------
+8. HOW TO TRACE A VALUE THROUGH THE APP
+------------------------------------------------------------
+
+Say you see a meal image on the screen and you want to know
+where it came from. Walk backwards like a detective:
+
+Step 1: Find where it is shown in the JSX.
+        Example: <img src={imgSrc} />
+
+Step 2: Find where that variable is set.
+        Example: const [imgSrc, setImgSrc] = useState(safeImage(meal.image_url));
+
+Step 3: Find where "meal" came from.
+        Example: it was passed in as a prop, or read from "deck".
+
+Step 4: Find where "deck" was filled.
+        Example: setDeck(meals) inside a useEffect.
+
+Step 5: Find where "meals" came from.
+        Example: supabase.from("meals").select("*")
+
+Now you know:
+  database table "meals" → variable "meals" → state "deck"
+  → one item "meal" → field "image_url" → state "imgSrc"
+  → shown as <img src={imgSrc} />
+
+This trick works for almost any value on the screen.
+
+------------------------------------------------------------
+9. WHAT TO LOOK FOR WHEN THE APP GETS BIGGER
+------------------------------------------------------------
+
+As your app grows, watch for these signs that things need
+gentle organizing (later, not now):
+
+- The same Supabase query copy-pasted in 3+ files.
+  → Could become one helper function.
+
+- A component file that is hundreds of lines long with many
+  useState lines at the top.
+  → Could be split into smaller components.
+
+- Lots of "any" types in TypeScript.
+  → Try to give real types so mistakes are caught early.
+
+- Names that don't match the table they came from.
+  → Rename ONE thing at a time and test.
+
+- Many "loading" flags in the same screen.
+  → They might combine into one.
+
+- Repeated magic strings like "breakfast", "lunch".
+  → They could become a single shared list.
+
+You don't have to fix these now. Just learn to spot them.
+
+------------------------------------------------------------
+10. SIMPLE EXAMPLES FROM YOUR APP
+------------------------------------------------------------
+
+EXAMPLE 1 — A loading flag
+  const [loading, setLoading] = useState(true);
+  Plain English: "I am waiting for the data. Show a spinner."
+
+EXAMPLE 2 — A selected food item
+  const [matchMeal, setMatchMeal] = useState<Meal | null>(null);
+  Plain English: "This holds the meal the user just matched with,
+  or nothing if no match yet."
+
+EXAMPLE 3 — A list of database rows
+  const [rows, setRows] = useState<MatchRow[]>([]);
+  Plain English: "rows is a list of match records from the database."
+
+EXAMPLE 4 — A form input value
+  const [zip, setZip] = useState("");
+  Plain English: "zip starts empty and updates as the user types."
+
+EXAMPLE 5 — Sending data to Supabase
+  await supabase.from("pins").insert({ user_id: userId, meal_id: meal.id });
+  Plain English: "Add a new row to the pins table saying that this
+  user ate this meal."
+
+EXAMPLE 6 — Reading data from Supabase
+  const { data, error } = await supabase
+    .from("meals").select("*").eq("is_alcohol", false);
+  Plain English: "Give me every meal that is not alcohol.
+  Put the rows in 'data', and tell me if anything broke in 'error'."
+
+EXAMPLE 7 — A filter the user controls
+  const [glutenFree, setGlutenFree] = useState(false);
+  Plain English: "Is the gluten-free toggle on? Start with no."
+
+------------------------------------------------------------
+11. QUESTIONS YOU SHOULD ASK WHEN READING CODE
+------------------------------------------------------------
+
+When you open a file you don't understand, slow down and ask:
+
+1) What does this file's NAME tell me?
+   (For example, app.swipe.tsx is the swiping screen.)
+
+2) What does it IMPORT at the top?
+   The imports often hint at what it does.
+
+3) What useState lines are at the top of the component?
+   Those are the moving parts.
+
+4) Is there a useEffect? What does it load?
+   That tells you what data this screen depends on.
+
+5) Are there any supabase.from(...) calls?
+   Which TABLES does this screen touch?
+
+6) What does the JSX (the HTML-looking part) actually show?
+   Match each piece on screen back to a variable.
+
+7) What event handlers exist? (handleClick, onSubmit, etc.)
+   These show what the user can DO on this screen.
+
+8) What is conditional?
+   Look for things like "if (loading) return <Spinner />".
+
+If you can answer those eight questions, you understand the
+file well enough to come back to it later.
+
+------------------------------------------------------------
+FINAL NOTE
+------------------------------------------------------------
+
+You don't need to memorize all of this today.
+Open this file whenever you sit down to read your code.
+Each time, one or two more things will click.
+
+The goal is simple:
+  Learn the patterns once → recognize them everywhere.
+
+You've got this, Kat. 💛
