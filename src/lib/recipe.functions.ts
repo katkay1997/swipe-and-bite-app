@@ -263,7 +263,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
 
       // 1. Cached? Skip cache when gluten-free is requested so we re-search
       // Tavily with the "gluten-free" keyword prioritized.
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from("recipes")
         .select("*")
         .eq("meal_id", data.mealId)
@@ -273,7 +273,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       // 2. Look up the meal name
-      const { data: meal, error: mealErr } = await supabaseAdmin
+      const { data: meal, error: mealErr } = await db
         .from("meals")
         .select("id,name,cuisine")
         .eq("id", data.mealId)
@@ -298,7 +298,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
         console.error("tavily search failed", e);
-        await supabaseAdmin
+        await db
           .from("recipes")
           .upsert({
             meal_id: meal.id,
