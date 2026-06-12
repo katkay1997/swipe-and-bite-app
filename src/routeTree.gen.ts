@@ -22,6 +22,7 @@ import { Route as AppOnboardingRouteImport } from './routes/app.onboarding'
 import { Route as AppModeRouteImport } from './routes/app.mode'
 import { Route as AppMatchesRouteImport } from './routes/app.matches'
 import { Route as AppAteRouteImport } from './routes/app.ate'
+import { Route as ApiDebugEnvRouteImport } from './routes/api/debug-env'
 import { Route as AppMatchIdRouteImport } from './routes/app.match.$id'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -89,6 +90,11 @@ const AppAteRoute = AppAteRouteImport.update({
   path: '/ate',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiDebugEnvRoute = ApiDebugEnvRouteImport.update({
+  id: '/api/debug-env',
+  path: '/api/debug-env',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppMatchIdRoute = AppMatchIdRouteImport.update({
   id: '/match/$id',
   path: '/match/$id',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/api/debug-env': typeof ApiDebugEnvRoute
   '/app/ate': typeof AppAteRoute
   '/app/matches': typeof AppMatchesRoute
   '/app/mode': typeof AppModeRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/api/debug-env': typeof ApiDebugEnvRoute
   '/app/ate': typeof AppAteRoute
   '/app/matches': typeof AppMatchesRoute
   '/app/mode': typeof AppModeRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/api/debug-env': typeof ApiDebugEnvRoute
   '/app/ate': typeof AppAteRoute
   '/app/matches': typeof AppMatchesRoute
   '/app/mode': typeof AppModeRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/reset-password'
+    | '/api/debug-env'
     | '/app/ate'
     | '/app/matches'
     | '/app/mode'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/reset-password'
+    | '/api/debug-env'
     | '/app/ate'
     | '/app/matches'
     | '/app/mode'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/reset-password'
+    | '/api/debug-env'
     | '/app/ate'
     | '/app/matches'
     | '/app/mode'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiDebugEnvRoute: typeof ApiDebugEnvRoute
   LegalDisclaimerRoute: typeof LegalDisclaimerRoute
 }
 
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAteRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/debug-env': {
+      id: '/api/debug-env'
+      path: '/api/debug-env'
+      fullPath: '/api/debug-env'
+      preLoaderRoute: typeof ApiDebugEnvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/match/$id': {
       id: '/app/match/$id'
       path: '/match/$id'
@@ -337,6 +357,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiDebugEnvRoute: ApiDebugEnvRoute,
   LegalDisclaimerRoute: LegalDisclaimerRoute,
 }
 export const routeTree = rootRouteImport
