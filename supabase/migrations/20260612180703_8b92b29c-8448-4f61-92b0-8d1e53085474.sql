@@ -1,0 +1,3 @@
+UPDATE public.meals SET image_url = 'https://images.unsplash.com/photo-1606101273945-e9eba91c0dc4?w=1200&q=80' WHERE source_id = 'bf-014';
+UPDATE public.meals SET image_url = 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=1200&q=80' WHERE source_id = 'bf-015';
+UPDATE public.meals SET image_url = 'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?w=1200&q=80' WHERE source_id = 'de-018';
