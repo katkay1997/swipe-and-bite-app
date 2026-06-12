@@ -293,7 +293,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
 
       const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
       const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
+      console.log("[enrich] meal", meal.name, "tavilyKey?", !!TAVILY_API_KEY, "lovableKey?", !!LOVABLE_API_KEY, "glutenFree", glutenFree);
       if (!TAVILY_API_KEY || !LOVABLE_API_KEY) {
+        console.error("[enrich] missing keys");
         return { recipe: null, error: "Recipe agent not configured" };
       }
 
