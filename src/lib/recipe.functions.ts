@@ -418,10 +418,10 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         attempted_at: new Date().toISOString(),
         enriched_at: new Date().toISOString(),
       };
-      const { error: upErr } = await dbAdmin.from("recipes").upsert(row);
-      if (upErr) {
-        console.error("recipes upsert failed", upErr);
-        return { recipe: null, error: "Couldn't save recipe" };
+      const adminC = await getAdmin();
+      if (adminC) {
+        const { error: upErr } = await adminC.from("recipes").upsert(row);
+        if (upErr) console.warn("[enrich] recipes upsert failed (returning recipe anyway)", upErr);
       }
 
       return { recipe: row as unknown as DbRecipe, error: null };
