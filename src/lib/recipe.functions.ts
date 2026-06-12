@@ -311,8 +311,6 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       const candidates = (search.results ?? [])
         .filter((r) => r.url && ALLOWED_DOMAINS.some((d) => safeHost(r.url!).endsWith(d)))
         .slice(0, 4);
-      const searchImages = search.images ?? [];
-
       // 4. Try each candidate
       let extracted: Recipe | null = null;
       let chosenUrl: string | null = null;
@@ -322,15 +320,28 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
           const ex = await tavilyExtract(TAVILY_API_KEY, cand.url);
           const content = ex?.raw_content ?? cand.content ?? "";
           if (!content || content.length < 400) continue;
-          const candImages = [...(ex?.images ?? []), ...searchImages];
+          // Only images scraped from THIS exact recipe page. Do not mix in
+          // images from the broader Tavily search — those come from other
+          // pages and cause unrelated hero photos.
+          const pageImages = (ex?.images ?? []).filter(
+            (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
+          );
+          if (pageImages.length === 0) {
+            console.warn("no page images for", cand.url, "— skipping");
+            continue;
+          }
           const recipe = await parseRecipeWithAI({
             lovableKey: LOVABLE_API_KEY,
             dishName: meal.name,
             pageUrl: cand.url,
             pageContent: content,
-            candidateImages: candImages,
+            candidateImages: pageImages,
           });
           if (recipe) {
+            // Enforce the chosen image actually came from this page.
+            if (!pageImages.includes(recipe.image_url)) {
+              recipe.image_url = pageImages[0];
+            }
             extracted = recipe;
             chosenUrl = cand.url;
             break;
