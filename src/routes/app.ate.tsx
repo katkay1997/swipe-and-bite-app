@@ -230,31 +230,41 @@ function PinGrid({
   rows,
   onRemove,
   matchIdByMeal,
+  recipeImageByMeal,
 }: {
   rows: PinRow[];
   onRemove: (id: string) => void;
   matchIdByMeal: Record<string, string>;
+  recipeImageByMeal: Record<string, string>;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {rows.map((p) => {
         const matchId = p.meal_id ? matchIdByMeal[p.meal_id] : undefined;
+        const imgSrc =
+          (p.meal_id ? recipeImageByMeal[p.meal_id] : undefined) ||
+          p.meal?.image_url ||
+          "/meal-placeholder.jpg";
         const content = (
           <>
-            {p.meal?.image_url && (
-              <img
-                src={p.meal.image_url}
-                alt={p.meal.name ?? "Meal"}
-                loading="lazy"
-                className="h-40 w-full object-cover"
-              />
-            )}
+            <img
+              src={imgSrc}
+              alt={p.meal?.name ?? "Meal"}
+              loading="lazy"
+              className="h-40 w-full object-cover bg-muted"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.src.endsWith("/meal-placeholder.jpg")) return;
+                el.src = "/meal-placeholder.jpg";
+              }}
+            />
             <div className="p-3">
               <h3 className="font-semibold leading-tight">{p.meal?.name ?? "Meal"}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">{p.meal?.cuisine}</p>
             </div>
           </>
         );
+
         return (
           <article
             key={p.id}
