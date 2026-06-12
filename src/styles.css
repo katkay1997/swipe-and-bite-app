@@ -233,11 +233,6 @@
     content: "";
     position: absolute;
     inset: 0;
-    background-image:
-      radial-gradient(circle at 12% 18%, hsl(345 90% 80% / 0.35) 0 6px, transparent 7px),
-      radial-gradient(circle at 82% 30%, hsl(18 92% 78% / 0.30) 0 8px, transparent 9px),
-      radial-gradient(circle at 28% 78%, hsl(340 95% 82% / 0.28) 0 5px, transparent 6px),
-      radial-gradient(circle at 70% 88%, hsl(350 78% 70% / 0.25) 0 7px, transparent 8px);
     pointer-events: none;
   }
 }
