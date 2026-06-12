@@ -140,7 +140,7 @@ async function parseRecipeWithAI(opts: {
   const trimmed = pageContent.slice(0, 18000);
   const imagesHint = candidateImages.slice(0, 8).join("\n");
 
-  const prompt = `You are extracting a real recipe from a webpage so we can show it to a user.\n\nUser is looking for: "${dishName}"\nPage URL: ${pageUrl}\n\n--- PAGE TEXT START ---\n${trimmed}\n--- PAGE TEXT END ---\n\nCandidate image URLs found on the page (pick the BEST appetizing photo of the FINISHED dish, never logos/ads/author headshots):\n${imagesHint}\n\nReturn the recipe by calling the report_recipe tool. Rules:\n- ingredients: clean strings with quantity + item ("2 tbsp olive oil", "1 lb salmon fillet"). Drop section headers like "For the sauce".\n- steps: numbered cooking steps in order, each a short paragraph. No "Step 1:" prefixes.\n- image_url: must be one of the candidate image URLs above (or another absolute http(s) URL clearly visible in page text). Prefer large hero photos.\n- summary: 1-2 enticing sentences describing the dish.\n- If the page is clearly NOT a recipe for "${dishName}" (e.g. listicle, ad, or different dish), do not invent — call the tool with an empty ingredients array so we know to skip.`;
+  const prompt = `You are extracting a real recipe from a webpage so we can show it to a user.\n\nUser is looking for: "${dishName}"\nPage URL: ${pageUrl}\n\n--- PAGE TEXT START ---\n${trimmed}\n--- PAGE TEXT END ---\n\nCandidate image URLs found ON THIS EXACT PAGE (pick the BEST appetizing photo of the FINISHED dish from this list — never logos/ads/author headshots/site banners/unrelated thumbnails):\n${imagesHint}\n\nReturn the recipe by calling the report_recipe tool. Rules:\n- ingredients: clean strings with quantity + item ("2 tbsp olive oil", "1 lb salmon fillet"). Drop section headers like "For the sauce".\n- steps: numbered cooking steps in order, each a short paragraph. No "Step 1:" prefixes.\n- image_url: MUST be copied verbatim from the candidate image URLs listed above (these were scraped from this exact recipe page). Do NOT invent URLs, do NOT use images from other pages, do NOT guess. Prefer the large hero photo of the finished "${dishName}". If no candidate image clearly shows the finished dish, pick the first candidate that is a food photo.\n- summary: 1-2 enticing sentences describing the dish.\n- If the page is clearly NOT a recipe for "${dishName}" (e.g. listicle, ad, or different dish), do not invent — call the tool with an empty ingredients array so we know to skip.`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -311,8 +311,6 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       const candidates = (search.results ?? [])
         .filter((r) => r.url && ALLOWED_DOMAINS.some((d) => safeHost(r.url!).endsWith(d)))
         .slice(0, 4);
-      const searchImages = search.images ?? [];
-
       // 4. Try each candidate
       let extracted: Recipe | null = null;
       let chosenUrl: string | null = null;
@@ -322,15 +320,28 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
           const ex = await tavilyExtract(TAVILY_API_KEY, cand.url);
           const content = ex?.raw_content ?? cand.content ?? "";
           if (!content || content.length < 400) continue;
-          const candImages = [...(ex?.images ?? []), ...searchImages];
+          // Only images scraped from THIS exact recipe page. Do not mix in
+          // images from the broader Tavily search — those come from other
+          // pages and cause unrelated hero photos.
+          const pageImages = (ex?.images ?? []).filter(
+            (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
+          );
+          if (pageImages.length === 0) {
+            console.warn("no page images for", cand.url, "— skipping");
+            continue;
+          }
           const recipe = await parseRecipeWithAI({
             lovableKey: LOVABLE_API_KEY,
             dishName: meal.name,
             pageUrl: cand.url,
             pageContent: content,
-            candidateImages: candImages,
+            candidateImages: pageImages,
           });
           if (recipe) {
+            // Enforce the chosen image actually came from this page.
+            if (!pageImages.includes(recipe.image_url)) {
+              recipe.image_url = pageImages[0];
+            }
             extracted = recipe;
             chosenUrl = cand.url;
             break;
