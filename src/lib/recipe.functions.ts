@@ -80,29 +80,33 @@ function safeHost(url: string): string {
 }
 
 async function tavilySearch(apiKey: string, query: string) {
+  const body = {
+    query,
+    search_depth: "advanced",
+    max_results: 8,
+    include_images: true,
+    include_answer: false,
+    include_domains: ALLOWED_DOMAINS,
+  };
+  console.log("[tavily.search] request", JSON.stringify(body));
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      query,
-      search_depth: "advanced",
-      max_results: 8,
-      include_images: true,
-      include_answer: false,
-      include_domains: ALLOWED_DOMAINS,
-    }),
+    body: JSON.stringify(body),
   });
+  const raw = await res.text();
+  console.log("[tavily.search] response status", res.status, "body", raw.slice(0, 2000));
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`tavily search ${res.status} ${body.slice(0, 200)}`);
+    throw new Error(`tavily search ${res.status} ${raw.slice(0, 200)}`);
   }
-  const json = (await res.json()) as {
+  const json = JSON.parse(raw) as {
     results?: { title?: string; url?: string; content?: string }[];
     images?: string[];
   };
+  console.log("[tavily.search] result count", json.results?.length ?? 0, "urls", (json.results ?? []).map((r) => r.url));
   return json;
 }
 
