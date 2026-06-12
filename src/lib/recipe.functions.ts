@@ -213,6 +213,9 @@ async function rehostImage(
   mealId: string,
 ): Promise<string | null> {
   try {
+    const { supabaseAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
     const res = await fetch(imageUrl, {
       headers: {
         // Some sites 403 without a UA
@@ -241,6 +244,7 @@ async function rehostImage(
     return null;
   }
 }
+
 
 export const enrichMealRecipe = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
