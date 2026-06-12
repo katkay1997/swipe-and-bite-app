@@ -318,15 +318,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
         console.error("tavily search failed", e);
-        await dbAdmin
-          .from("recipes")
-
-          .upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "search_failed",
-            attempted_at: new Date().toISOString(),
-          });
+        const adminA = await getAdmin();
+        if (adminA) {
+          try {
+            await adminA.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "search_failed",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (we) {
+            console.warn("[enrich] failed-row write skipped", we);
+          }
+        }
         return { recipe: null, error: "Recipe search failed" };
       }
       const candidates = (search.results ?? [])
