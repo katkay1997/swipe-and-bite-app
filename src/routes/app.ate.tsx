@@ -207,7 +207,7 @@ function AtePage() {
                 <h3 className="mb-2 text-sm font-semibold capitalize text-muted-foreground">
                   {slot}
                 </h3>
-                <PinGrid rows={grouped[slot]} onRemove={remove} matchIdByMeal={matchIdByMeal} />
+                <PinGrid rows={grouped[slot]} onRemove={remove} matchIdByMeal={matchIdByMeal} recipeImageByMeal={recipeImageByMeal} />
               </section>
             ) : null,
           )}
