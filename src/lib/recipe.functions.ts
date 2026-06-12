@@ -420,8 +420,12 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       };
       const adminC = await getAdmin();
       if (adminC) {
-        const { error: upErr } = await adminC.from("recipes").upsert(row);
-        if (upErr) console.warn("[enrich] recipes upsert failed (returning recipe anyway)", upErr);
+        try {
+          const { error: upErr } = await adminC.from("recipes").upsert(row);
+          if (upErr) console.warn("[enrich] recipes upsert failed (returning recipe anyway)", upErr);
+        } catch (we) {
+          console.warn("[enrich] cache write skipped (admin unavailable)", we);
+        }
       }
 
       return { recipe: row as unknown as DbRecipe, error: null };
