@@ -301,8 +301,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
         console.error("tavily search failed", e);
-        await db
+        await dbAdmin
           .from("recipes")
+
           .upsert({
             meal_id: meal.id,
             enrichment_status: "failed",
