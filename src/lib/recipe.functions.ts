@@ -260,13 +260,20 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
-    // Reads can use the user-authenticated client; writes to the shared
-    // recipes cache go through the service-role admin client because RLS
-    // restricts INSERT/UPDATE on `recipes` to trusted server code only.
+    // Reads use the user-authenticated client. The service-role admin client
+    // is only needed to write the shared `recipes` cache row — we lazy-load
+    // it inside each write branch so a missing SUPABASE_SERVICE_ROLE_KEY
+    // does not prevent Tavily from running and returning a real recipe.
     const db = context.supabase;
-    const { supabaseAdmin: dbAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    async function getAdmin() {
+      try {
+        const mod = await import("@/integrations/supabase/client.server");
+        return mod.supabaseAdmin;
+      } catch (e) {
+        console.warn("[enrich] admin client unavailable, skipping cache write", e);
+        return null;
+      }
+    }
     try {
       const glutenFree = data.glutenFree === true;
 
@@ -311,15 +318,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
         console.error("tavily search failed", e);
-        await dbAdmin
-          .from("recipes")
-
-          .upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "search_failed",
-            attempted_at: new Date().toISOString(),
-          });
+        const adminA = await getAdmin();
+        if (adminA) {
+          try {
+            await adminA.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "search_failed",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (we) {
+            console.warn("[enrich] failed-row write skipped", we);
+          }
+        }
         return { recipe: null, error: "Recipe search failed" };
       }
       const candidates = (search.results ?? [])
@@ -368,12 +379,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       if (!extracted || !chosenUrl) {
-        await dbAdmin.from("recipes").upsert({
-          meal_id: meal.id,
-          enrichment_status: "failed",
-          enrichment_error: "no_good_candidate",
-          attempted_at: new Date().toISOString(),
-        });
+        const adminB = await getAdmin();
+        if (adminB) {
+          try {
+            await adminB.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "no_good_candidate",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (we) {
+            console.warn("[enrich] failed-row write skipped", we);
+          }
+        }
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
 
@@ -400,10 +418,14 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         attempted_at: new Date().toISOString(),
         enriched_at: new Date().toISOString(),
       };
-      const { error: upErr } = await dbAdmin.from("recipes").upsert(row);
-      if (upErr) {
-        console.error("recipes upsert failed", upErr);
-        return { recipe: null, error: "Couldn't save recipe" };
+      const adminC = await getAdmin();
+      if (adminC) {
+        try {
+          const { error: upErr } = await adminC.from("recipes").upsert(row);
+          if (upErr) console.warn("[enrich] recipes upsert failed (returning recipe anyway)", upErr);
+        } catch (we) {
+          console.warn("[enrich] cache write skipped (admin unavailable)", we);
+        }
       }
 
       return { recipe: row as unknown as DbRecipe, error: null };
