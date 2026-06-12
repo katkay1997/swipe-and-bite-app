@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   return (
-    <div className="min-h-screen gradient-sunrise relative overflow-hidden hearts-bg">
+    <div className="min-h-screen gradient-sunrise relative overflow-hidden">
        {[...Array(8)].map((_, i) => (
         <motion.div
           key={i}
