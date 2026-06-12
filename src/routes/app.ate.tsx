@@ -51,6 +51,7 @@ function AtePage() {
   const [estimating, setEstimating] = useState(false);
 
   const [matchIdByMeal, setMatchIdByMeal] = useState<Record<string, string>>({});
+  const [recipeImageByMeal, setRecipeImageByMeal] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!userId) return;
@@ -63,13 +64,28 @@ function AtePage() {
           .order("created_at", { ascending: false }),
         supabase.from("matches").select("id, meal_id").eq("user_id", userId),
       ]);
-      setRows((pinsData as PinRow[]) || []);
+      const pins = (pinsData as PinRow[]) || [];
+      setRows(pins);
       const map: Record<string, string> = {};
       for (const m of matchesData || []) if (m.meal_id) map[m.meal_id] = m.id;
       setMatchIdByMeal(map);
+
+      const mealIds = Array.from(new Set(pins.map((p) => p.meal_id).filter(Boolean) as string[]));
+      if (mealIds.length > 0) {
+        const { data: recipes } = await supabase
+          .from("recipes")
+          .select("meal_id, image_url")
+          .in("meal_id", mealIds);
+        const rmap: Record<string, string> = {};
+        for (const r of recipes || []) {
+          if (r.meal_id && r.image_url) rmap[r.meal_id] = r.image_url;
+        }
+        setRecipeImageByMeal(rmap);
+      }
       setLoading(false);
     })();
   }, [userId]);
+
 
   const today = useMemo(() => rows.filter((r) => isToday(r.created_at)), [rows]);
 
@@ -191,7 +207,7 @@ function AtePage() {
                 <h3 className="mb-2 text-sm font-semibold capitalize text-muted-foreground">
                   {slot}
                 </h3>
-                <PinGrid rows={grouped[slot]} onRemove={remove} matchIdByMeal={matchIdByMeal} />
+                <PinGrid rows={grouped[slot]} onRemove={remove} matchIdByMeal={matchIdByMeal} recipeImageByMeal={recipeImageByMeal} />
               </section>
             ) : null,
           )}
@@ -214,31 +230,41 @@ function PinGrid({
   rows,
   onRemove,
   matchIdByMeal,
+  recipeImageByMeal,
 }: {
   rows: PinRow[];
   onRemove: (id: string) => void;
   matchIdByMeal: Record<string, string>;
+  recipeImageByMeal: Record<string, string>;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {rows.map((p) => {
         const matchId = p.meal_id ? matchIdByMeal[p.meal_id] : undefined;
+        const imgSrc =
+          (p.meal_id ? recipeImageByMeal[p.meal_id] : undefined) ||
+          p.meal?.image_url ||
+          "/meal-placeholder.jpg";
         const content = (
           <>
-            {p.meal?.image_url && (
-              <img
-                src={p.meal.image_url}
-                alt={p.meal.name ?? "Meal"}
-                loading="lazy"
-                className="h-40 w-full object-cover"
-              />
-            )}
+            <img
+              src={imgSrc}
+              alt={p.meal?.name ?? "Meal"}
+              loading="lazy"
+              className="h-40 w-full object-cover bg-muted"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.src.endsWith("/meal-placeholder.jpg")) return;
+                el.src = "/meal-placeholder.jpg";
+              }}
+            />
             <div className="p-3">
               <h3 className="font-semibold leading-tight">{p.meal?.name ?? "Meal"}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">{p.meal?.cuisine}</p>
             </div>
           </>
         );
+
         return (
           <article
             key={p.id}
