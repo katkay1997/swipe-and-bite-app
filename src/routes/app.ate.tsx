@@ -51,6 +51,7 @@ function AtePage() {
   const [estimating, setEstimating] = useState(false);
 
   const [matchIdByMeal, setMatchIdByMeal] = useState<Record<string, string>>({});
+  const [recipeImageByMeal, setRecipeImageByMeal] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!userId) return;
@@ -63,13 +64,28 @@ function AtePage() {
           .order("created_at", { ascending: false }),
         supabase.from("matches").select("id, meal_id").eq("user_id", userId),
       ]);
-      setRows((pinsData as PinRow[]) || []);
+      const pins = (pinsData as PinRow[]) || [];
+      setRows(pins);
       const map: Record<string, string> = {};
       for (const m of matchesData || []) if (m.meal_id) map[m.meal_id] = m.id;
       setMatchIdByMeal(map);
+
+      const mealIds = Array.from(new Set(pins.map((p) => p.meal_id).filter(Boolean) as string[]));
+      if (mealIds.length > 0) {
+        const { data: recipes } = await supabase
+          .from("recipes")
+          .select("meal_id, image_url")
+          .in("meal_id", mealIds);
+        const rmap: Record<string, string> = {};
+        for (const r of recipes || []) {
+          if (r.meal_id && r.image_url) rmap[r.meal_id] = r.image_url;
+        }
+        setRecipeImageByMeal(rmap);
+      }
       setLoading(false);
     })();
   }, [userId]);
+
 
   const today = useMemo(() => rows.filter((r) => isToday(r.created_at)), [rows]);
 
