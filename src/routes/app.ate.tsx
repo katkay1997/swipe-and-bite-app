@@ -50,15 +50,23 @@ function AtePage() {
   const [estimates, setEstimates] = useState<Record<string, Nutrition>>({});
   const [estimating, setEstimating] = useState(false);
 
+  const [matchIdByMeal, setMatchIdByMeal] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (!userId) return;
     (async () => {
-      const { data } = await supabase
-        .from("pins")
-        .select("*, meal:meals(*)")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      setRows((data as PinRow[]) || []);
+      const [{ data: pinsData }, { data: matchesData }] = await Promise.all([
+        supabase
+          .from("pins")
+          .select("*, meal:meals(*)")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+        supabase.from("matches").select("id, meal_id").eq("user_id", userId),
+      ]);
+      setRows((pinsData as PinRow[]) || []);
+      const map: Record<string, string> = {};
+      for (const m of matchesData || []) if (m.meal_id) map[m.meal_id] = m.id;
+      setMatchIdByMeal(map);
       setLoading(false);
     })();
   }, [userId]);
