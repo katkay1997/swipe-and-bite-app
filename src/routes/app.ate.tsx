@@ -210,35 +210,64 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PinGrid({ rows, onRemove }: { rows: PinRow[]; onRemove: (id: string) => void }) {
+function PinGrid({
+  rows,
+  onRemove,
+  matchIdByMeal,
+}: {
+  rows: PinRow[];
+  onRemove: (id: string) => void;
+  matchIdByMeal: Record<string, string>;
+}) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {rows.map((p) => (
-        <article
-          key={p.id}
-          className="group relative overflow-hidden rounded-2xl bg-card"
-          style={{ boxShadow: "var(--shadow-card)" }}
-        >
-          {p.meal?.image_url && (
-            <div
-              className="h-40 w-full bg-cover bg-center"
-              style={{ backgroundImage: `url(${p.meal.image_url})` }}
-            />
-          )}
-          <div className="p-3">
-            <h3 className="font-semibold leading-tight">{p.meal?.name ?? "Meal"}</h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">{p.meal?.cuisine}</p>
-          </div>
-          <button
-            type="button"
-            aria-label="Remove"
-            onClick={() => onRemove(p.id)}
-            className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
+      {rows.map((p) => {
+        const matchId = p.meal_id ? matchIdByMeal[p.meal_id] : undefined;
+        const content = (
+          <>
+            {p.meal?.image_url && (
+              <img
+                src={p.meal.image_url}
+                alt={p.meal.name ?? "Meal"}
+                loading="lazy"
+                className="h-40 w-full object-cover"
+              />
+            )}
+            <div className="p-3">
+              <h3 className="font-semibold leading-tight">{p.meal?.name ?? "Meal"}</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">{p.meal?.cuisine}</p>
+            </div>
+          </>
+        );
+        return (
+          <article
+            key={p.id}
+            className="group relative overflow-hidden rounded-2xl bg-card"
+            style={{ boxShadow: "var(--shadow-card)" }}
           >
-            <Trash2 size={14} />
-          </button>
-        </article>
-      ))}
+            {matchId ? (
+              <Link
+                to="/app/match/$id"
+                params={{ id: matchId }}
+                className="block"
+                aria-label={`Open ${p.meal?.name ?? "match"}`}
+              >
+                {content}
+              </Link>
+            ) : (
+              content
+            )}
+            <button
+              type="button"
+              aria-label="Remove"
+              onClick={() => onRemove(p.id)}
+              className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <Trash2 size={14} />
+            </button>
+          </article>
+        );
+      })}
     </div>
   );
 }
