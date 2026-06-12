@@ -80,33 +80,38 @@ function safeHost(url: string): string {
 }
 
 async function tavilySearch(apiKey: string, query: string) {
+  const body = {
+    query,
+    search_depth: "advanced",
+    max_results: 8,
+    include_images: true,
+    include_answer: false,
+    include_domains: ALLOWED_DOMAINS,
+  };
+  console.log("[tavily.search] request", JSON.stringify(body));
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      query,
-      search_depth: "advanced",
-      max_results: 8,
-      include_images: true,
-      include_answer: false,
-      include_domains: ALLOWED_DOMAINS,
-    }),
+    body: JSON.stringify(body),
   });
+  const raw = await res.text();
+  console.log("[tavily.search] response status", res.status, "body", raw.slice(0, 2000));
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`tavily search ${res.status} ${body.slice(0, 200)}`);
+    throw new Error(`tavily search ${res.status} ${raw.slice(0, 200)}`);
   }
-  const json = (await res.json()) as {
+  const json = JSON.parse(raw) as {
     results?: { title?: string; url?: string; content?: string }[];
     images?: string[];
   };
+  console.log("[tavily.search] result count", json.results?.length ?? 0, "urls", (json.results ?? []).map((r) => r.url));
   return json;
 }
 
 async function tavilyExtract(apiKey: string, url: string) {
+  console.log("[tavily.extract] request url", url);
   const res = await fetch("https://api.tavily.com/extract", {
     method: "POST",
     headers: {
@@ -119,14 +124,17 @@ async function tavilyExtract(apiKey: string, url: string) {
       include_images: true,
     }),
   });
+  const raw = await res.text();
+  console.log("[tavily.extract] response status", res.status, "len", raw.length);
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`tavily extract ${res.status} ${body.slice(0, 200)}`);
+    throw new Error(`tavily extract ${res.status} ${raw.slice(0, 200)}`);
   }
-  const json = (await res.json()) as {
+  const json = JSON.parse(raw) as {
     results?: { url?: string; raw_content?: string; images?: string[] }[];
   };
-  return json.results?.[0];
+  const first = json.results?.[0];
+  console.log("[tavily.extract] first result raw_content len", first?.raw_content?.length ?? 0, "images", first?.images?.length ?? 0);
+  return first;
 }
 
 async function parseRecipeWithAI(opts: {
@@ -285,7 +293,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
 
       const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
       const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
+      console.log("[enrich] meal", meal.name, "tavilyKey?", !!TAVILY_API_KEY, "lovableKey?", !!LOVABLE_API_KEY, "glutenFree", glutenFree);
       if (!TAVILY_API_KEY || !LOVABLE_API_KEY) {
+        console.error("[enrich] missing keys");
         return { recipe: null, error: "Recipe agent not configured" };
       }
 
@@ -315,6 +325,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       const candidates = (search.results ?? [])
         .filter((r) => r.url && ALLOWED_DOMAINS.some((d) => safeHost(r.url!).endsWith(d)))
         .slice(0, 4);
+      console.log("[enrich] candidates after domain filter", candidates.length, candidates.map((c) => c.url));
       // 4. Try each candidate
       let extracted: Recipe | null = null;
       let chosenUrl: string | null = null;
