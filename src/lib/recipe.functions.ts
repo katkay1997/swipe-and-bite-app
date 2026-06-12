@@ -251,9 +251,15 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
   .inputValidator((input: { mealId: string; glutenFree?: boolean }) =>
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
-  .handler(async ({ data }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
+  .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
+    // Use the user-authenticated supabase client from middleware. The
+    // service-role admin client is not used here because SUPABASE_SERVICE_ROLE_KEY
+    // is not injected into the Worker runtime for this project; the recipes
+    // table now allows authenticated upserts via RLS.
+    const db = context.supabase;
     try {
       const glutenFree = data.glutenFree === true;
+
 
       // 1. Cached? Skip cache when gluten-free is requested so we re-search
       // Tavily with the "gluten-free" keyword prioritized.
