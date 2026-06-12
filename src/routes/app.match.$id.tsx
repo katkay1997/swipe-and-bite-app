@@ -393,19 +393,14 @@ function CookView({
         </section>
       )}
 
-      {!recipeLoading && !recipe && meal.instructions && (
+      {!recipeLoading && (!recipe || recipe.steps.length === 0) && (
         <section className="rounded-2xl bg-card p-4 shadow-card">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Instructions
           </h2>
-          <div className="mt-2 space-y-2 text-sm leading-relaxed">
-            {meal.instructions
-              .split(/\n+/)
-              .filter((s) => s.trim())
-              .map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-          </div>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Recipe details coming soon.
+          </p>
         </section>
       )}
 
