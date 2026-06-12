@@ -42,7 +42,31 @@ function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen pb-20 gradient-sunrise hearts-bg relative">
+    <div className="min-h-screen pb-20 gradient-sunrise hearts-bg relative overflow-hidden">
+       {[...Array(8)].map((_, i) => (
+        <motion.div
+          key={i}
+          aria-hidden
+          className="absolute text-2xl pointer-events-none select-none z-0"
+          style={{
+            left: `${5 + i * 12}%`,
+            bottom: `-10%`,
+            color: "hsl(350 90% 48% / 0.28)",
+          }}
+          animate={{
+            y: [0, -(typeof window !== "undefined" ? window.innerHeight * 1.3 : 900)],
+            opacity: [0, 0.35, 0.25, 0],
+          }}
+          transition={{
+            duration: 9 + i * 1.4,
+            repeat: Infinity,
+            delay: i * 1.1,
+            ease: "linear",
+          }}
+        >
+          ♥
+        </motion.div>
+      ))}
       <header className="relative z-10 mx-auto flex max-w-2xl items-center justify-between px-5 py-4">
         <Logo size="sm" />
         <Button
