@@ -111,6 +111,7 @@ async function tavilySearch(apiKey: string, query: string) {
 }
 
 async function tavilyExtract(apiKey: string, url: string) {
+  console.log("[tavily.extract] request url", url);
   const res = await fetch("https://api.tavily.com/extract", {
     method: "POST",
     headers: {
@@ -123,14 +124,17 @@ async function tavilyExtract(apiKey: string, url: string) {
       include_images: true,
     }),
   });
+  const raw = await res.text();
+  console.log("[tavily.extract] response status", res.status, "len", raw.length);
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`tavily extract ${res.status} ${body.slice(0, 200)}`);
+    throw new Error(`tavily extract ${res.status} ${raw.slice(0, 200)}`);
   }
-  const json = (await res.json()) as {
+  const json = JSON.parse(raw) as {
     results?: { url?: string; raw_content?: string; images?: string[] }[];
   };
-  return json.results?.[0];
+  const first = json.results?.[0];
+  console.log("[tavily.extract] first result raw_content len", first?.raw_content?.length ?? 0, "images", first?.images?.length ?? 0);
+  return first;
 }
 
 async function parseRecipeWithAI(opts: {
