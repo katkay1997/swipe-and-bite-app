@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
 
 /**
  * Real-recipe enrichment agent.
@@ -213,6 +213,9 @@ async function rehostImage(
   mealId: string,
 ): Promise<string | null> {
   try {
+    const { supabaseAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
     const res = await fetch(imageUrl, {
       headers: {
         // Some sites 403 without a UA
@@ -242,18 +245,25 @@ async function rehostImage(
   }
 }
 
+
 export const enrichMealRecipe = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { mealId: string; glutenFree?: boolean }) =>
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
-  .handler(async ({ data }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
+  .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
+    // Use the user-authenticated supabase client from middleware. The
+    // service-role admin client is not used here because SUPABASE_SERVICE_ROLE_KEY
+    // is not injected into the Worker runtime for this project; the recipes
+    // table now allows authenticated upserts via RLS.
+    const db = context.supabase;
     try {
       const glutenFree = data.glutenFree === true;
 
+
       // 1. Cached? Skip cache when gluten-free is requested so we re-search
       // Tavily with the "gluten-free" keyword prioritized.
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from("recipes")
         .select("*")
         .eq("meal_id", data.mealId)
@@ -263,7 +273,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       // 2. Look up the meal name
-      const { data: meal, error: mealErr } = await supabaseAdmin
+      const { data: meal, error: mealErr } = await db
         .from("meals")
         .select("id,name,cuisine")
         .eq("id", data.mealId)
@@ -288,7 +298,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
         console.error("tavily search failed", e);
-        await supabaseAdmin
+        await db
           .from("recipes")
           .upsert({
             meal_id: meal.id,
@@ -332,7 +342,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       if (!extracted || !chosenUrl) {
-        await supabaseAdmin.from("recipes").upsert({
+        await db.from("recipes").upsert({
           meal_id: meal.id,
           enrichment_status: "failed",
           enrichment_error: "no_good_candidate",
@@ -364,7 +374,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         attempted_at: new Date().toISOString(),
         enriched_at: new Date().toISOString(),
       };
-      const { error: upErr } = await supabaseAdmin.from("recipes").upsert(row);
+      const { error: upErr } = await db.from("recipes").upsert(row);
       if (upErr) {
         console.error("recipes upsert failed", upErr);
         return { recipe: null, error: "Couldn't save recipe" };
