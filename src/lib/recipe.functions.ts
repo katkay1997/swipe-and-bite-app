@@ -325,6 +325,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       const candidates = (search.results ?? [])
         .filter((r) => r.url && ALLOWED_DOMAINS.some((d) => safeHost(r.url!).endsWith(d)))
         .slice(0, 4);
+      console.log("[enrich] candidates after domain filter", candidates.length, candidates.map((c) => c.url));
       // 4. Try each candidate
       let extracted: Recipe | null = null;
       let chosenUrl: string | null = null;
