@@ -23,6 +23,7 @@ import { Route as AppModeRouteImport } from './routes/app.mode'
 import { Route as AppMatchesRouteImport } from './routes/app.matches'
 import { Route as AppAteRouteImport } from './routes/app.ate'
 import { Route as AppMatchIdRouteImport } from './routes/app.match.$id'
+import { Route as ApiPublicDebugEnvRouteImport } from './routes/api/public/debug-env'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -94,6 +95,11 @@ const AppMatchIdRoute = AppMatchIdRouteImport.update({
   path: '/match/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiPublicDebugEnvRoute = ApiPublicDebugEnvRouteImport.update({
+  id: '/api/public/debug-env',
+  path: '/api/public/debug-env',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/swipe': typeof AppSwipeRoute
   '/legal/disclaimer': typeof LegalDisclaimerRoute
+  '/api/public/debug-env': typeof ApiPublicDebugEnvRoute
   '/app/match/$id': typeof AppMatchIdRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/swipe': typeof AppSwipeRoute
   '/legal/disclaimer': typeof LegalDisclaimerRoute
+  '/api/public/debug-env': typeof ApiPublicDebugEnvRoute
   '/app/match/$id': typeof AppMatchIdRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/swipe': typeof AppSwipeRoute
   '/legal/disclaimer': typeof LegalDisclaimerRoute
+  '/api/public/debug-env': typeof ApiPublicDebugEnvRoute
   '/app/match/$id': typeof AppMatchIdRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/swipe'
     | '/legal/disclaimer'
+    | '/api/public/debug-env'
     | '/app/match/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/swipe'
     | '/legal/disclaimer'
+    | '/api/public/debug-env'
     | '/app/match/$id'
   id:
     | '__root__'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/swipe'
     | '/legal/disclaimer'
+    | '/api/public/debug-env'
     | '/app/match/$id'
   fileRoutesById: FileRoutesById
 }
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   LegalDisclaimerRoute: typeof LegalDisclaimerRoute
+  ApiPublicDebugEnvRoute: typeof ApiPublicDebugEnvRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -304,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMatchIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/public/debug-env': {
+      id: '/api/public/debug-env'
+      path: '/api/public/debug-env'
+      fullPath: '/api/public/debug-env'
+      preLoaderRoute: typeof ApiPublicDebugEnvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -338,7 +358,18 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   LegalDisclaimerRoute: LegalDisclaimerRoute,
+  ApiPublicDebugEnvRoute: ApiPublicDebugEnvRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
