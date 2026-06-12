@@ -105,7 +105,18 @@ export const estimateMealNutrition = createServerFn({ method: "POST" })
       const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
       if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
         const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-        await admin.from("meals").update({ nutrition: parsed.data }).eq("id", data.mealId);
+        // Re-check current nutrition to prevent any authenticated user from
+        // overwriting an already-populated shared nutrition cache. Only write
+        // when the meal's nutrition is still empty/missing calories.
+        const { data: current } = await admin
+          .from("meals")
+          .select("nutrition")
+          .eq("id", data.mealId)
+          .single();
+        const currentNut = (current?.nutrition ?? null) as Partial<Nutrition> | null;
+        if (!currentNut || typeof currentNut.calories !== "number") {
+          await admin.from("meals").update({ nutrition: parsed.data }).eq("id", data.mealId);
+        }
       }
 
       return { nutrition: parsed.data, error: null, cached: false };
