@@ -379,12 +379,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       if (!extracted || !chosenUrl) {
-        await dbAdmin.from("recipes").upsert({
-          meal_id: meal.id,
-          enrichment_status: "failed",
-          enrichment_error: "no_good_candidate",
-          attempted_at: new Date().toISOString(),
-        });
+        const adminB = await getAdmin();
+        if (adminB) {
+          try {
+            await adminB.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "no_good_candidate",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (we) {
+            console.warn("[enrich] failed-row write skipped", we);
+          }
+        }
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
 
