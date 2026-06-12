@@ -260,13 +260,20 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
-    // Reads can use the user-authenticated client; writes to the shared
-    // recipes cache go through the service-role admin client because RLS
-    // restricts INSERT/UPDATE on `recipes` to trusted server code only.
+    // Reads use the user-authenticated client. The service-role admin client
+    // is only needed to write the shared `recipes` cache row — we lazy-load
+    // it inside each write branch so a missing SUPABASE_SERVICE_ROLE_KEY
+    // does not prevent Tavily from running and returning a real recipe.
     const db = context.supabase;
-    const { supabaseAdmin: dbAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    async function getAdmin() {
+      try {
+        const mod = await import("@/integrations/supabase/client.server");
+        return mod.supabaseAdmin;
+      } catch (e) {
+        console.warn("[enrich] admin client unavailable, skipping cache write", e);
+        return null;
+      }
+    }
     try {
       const glutenFree = data.glutenFree === true;
 
