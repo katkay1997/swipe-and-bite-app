@@ -445,7 +445,9 @@ function NutritionPanel({
         const res = await estimate({ data: { mealId } });
         if (!cancelled) {
           if (res.nutrition) setNutrition(res.nutrition);
-          else if (res.error) toast.error(res.error);
+          // Silently ignore estimate errors — the parent already handles
+          // missing meals, and a failed nutrition estimate shouldn't toast
+          // (it just leaves the panel empty / cached values).
         }
       } finally {
         if (!cancelled) setLoading(false);
