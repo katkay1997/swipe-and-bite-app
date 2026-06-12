@@ -342,7 +342,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       if (!extracted || !chosenUrl) {
-        await supabaseAdmin.from("recipes").upsert({
+        await db.from("recipes").upsert({
           meal_id: meal.id,
           enrichment_status: "failed",
           enrichment_error: "no_good_candidate",
@@ -374,7 +374,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         attempted_at: new Date().toISOString(),
         enriched_at: new Date().toISOString(),
       };
-      const { error: upErr } = await supabaseAdmin.from("recipes").upsert(row);
+      const { error: upErr } = await db.from("recipes").upsert(row);
       if (upErr) {
         console.error("recipes upsert failed", upErr);
         return { recipe: null, error: "Couldn't save recipe" };
