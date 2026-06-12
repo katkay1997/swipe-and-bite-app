@@ -252,11 +252,13 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
-    // Use the user-authenticated supabase client from middleware. The
-    // service-role admin client is not used here because SUPABASE_SERVICE_ROLE_KEY
-    // is not injected into the Worker runtime for this project; the recipes
-    // table now allows authenticated upserts via RLS.
+    // Reads can use the user-authenticated client; writes to the shared
+    // recipes cache go through the service-role admin client because RLS
+    // restricts INSERT/UPDATE on `recipes` to trusted server code only.
     const db = context.supabase;
+    const { supabaseAdmin: dbAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
     try {
       const glutenFree = data.glutenFree === true;
 
@@ -268,6 +270,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         .select("*")
         .eq("meal_id", data.mealId)
         .maybeSingle();
+
       if (!glutenFree && existing && existing.enrichment_status === "ready") {
         return { recipe: existing as unknown as DbRecipe, error: null };
       }
@@ -298,8 +301,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
         console.error("tavily search failed", e);
-        await db
+        await dbAdmin
           .from("recipes")
+
           .upsert({
             meal_id: meal.id,
             enrichment_status: "failed",
@@ -353,7 +357,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       if (!extracted || !chosenUrl) {
-        await db.from("recipes").upsert({
+        await dbAdmin.from("recipes").upsert({
           meal_id: meal.id,
           enrichment_status: "failed",
           enrichment_error: "no_good_candidate",
@@ -385,7 +389,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         attempted_at: new Date().toISOString(),
         enriched_at: new Date().toISOString(),
       };
-      const { error: upErr } = await db.from("recipes").upsert(row);
+      const { error: upErr } = await dbAdmin.from("recipes").upsert(row);
       if (upErr) {
         console.error("recipes upsert failed", upErr);
         return { recipe: null, error: "Couldn't save recipe" };
