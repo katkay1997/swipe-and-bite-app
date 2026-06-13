@@ -2,24 +2,20 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-
 /**
- * Real-recipe enrichment agent.
+ * Real-recipe enrichment pipeline — Tavily + Firecrawl edition.
  *
- * Flow when the user opens a swipe card:
- *  1. Look up the meal in our DB.
- *  2. If we already have a `ready` recipe row -> return cached.
- *  3. Otherwise: Tavily search high-quality recipe sites for the dish name,
- *     try the top 3 candidates one by one. For each candidate:
- *       a. Tavily Extract pulls the cleaned page content.
- *       b. Lovable AI (Gemini) parses ingredients / numbered steps / image / times
- *          via tool calling so we always get structured data.
- *       c. We download the chosen image and re-host it in the public
- *          `recipe-images` bucket so links never break.
- *       d. We upsert the recipe row and return it.
- *  4. If everything fails, mark `failed` and return null.
+ * Flow:
+ *  1. Check recipes table — if enrichment_status = 'ready' return cached.
+ *  2. Tavily Search finds the best matching recipe URL from allowed food sites.
+ *  3. Firecrawl scrapes the page and returns clean markdown + structured extract.
+ *  4. If Firecrawl extract has ingredients + steps, use them directly.
+ *  5. Otherwise AI (Gemini) parses the Firecrawl markdown.
+ *  6. Final fallback: AI parses Tavily search snippet.
+ *  7. Recipe is saved to recipes table and returned.
  *
- * Cached forever after first success; safe to call on every card view.
+ * Cached forever after first success — Tavily and Firecrawl only run ONCE
+ * per unique meal across ALL users.
  */
 
 const ALLOWED_DOMAINS = [
@@ -41,10 +37,7 @@ const RecipeSchema = z.object({
   title: z.string().min(2).max(200),
   summary: z.string().min(10).max(400),
   image_url: z.string().url().optional().nullable(),
-  ingredients: z
-    .array(z.string().min(1).max(200))
-    .min(2)
-    .max(60),
+  ingredients: z.array(z.string().min(1).max(200)).min(2).max(60),
   steps: z.array(z.string().min(4).max(1500)).min(2).max(40),
   prep_minutes: z.number().int().min(0).max(600).nullable().optional(),
   cook_minutes: z.number().int().min(0).max(600).nullable().optional(),
@@ -88,7 +81,7 @@ async function tavilySearch(apiKey: string, query: string) {
     include_answer: false,
     include_domains: ALLOWED_DOMAINS,
   };
-  console.log("[tavily.search] request", JSON.stringify(body));
+  console.log("[tavily.search] query:", query);
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -98,43 +91,78 @@ async function tavilySearch(apiKey: string, query: string) {
     body: JSON.stringify(body),
   });
   const raw = await res.text();
-  console.log("[tavily.search] response status", res.status, "body", raw.slice(0, 2000));
-  if (!res.ok) {
-    throw new Error(`tavily search ${res.status} ${raw.slice(0, 200)}`);
-  }
+  console.log("[tavily.search] status:", res.status);
+  if (!res.ok) throw new Error(`tavily search ${res.status} ${raw.slice(0, 200)}`);
   const json = JSON.parse(raw) as {
     results?: { title?: string; url?: string; content?: string }[];
     images?: string[];
   };
-  console.log("[tavily.search] result count", json.results?.length ?? 0, "urls", (json.results ?? []).map((r) => r.url));
+  console.log("[tavily.search] found", json.results?.length ?? 0, "results");
   return json;
 }
 
-async function tavilyExtract(apiKey: string, url: string) {
-  console.log("[tavily.extract] request url", url);
-  const res = await fetch("https://api.tavily.com/extract", {
+async function firecrawlScrape(apiKey: string, url: string) {
+  console.log("[firecrawl.scrape] scraping:", url);
+  const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      urls: [url],
-      extract_depth: "advanced",
-      include_images: true,
+      url,
+      formats: ["markdown", "extract"],
+      extract: {
+        schema: {
+          type: "object",
+          properties: {
+            recipe_name: { type: "string" },
+            description: { type: "string" },
+            ingredients: { type: "array", items: { type: "string" } },
+            instructions: { type: "array", items: { type: "string" } },
+            prep_time_minutes: { type: "number" },
+            cook_time_minutes: { type: "number" },
+            total_time_minutes: { type: "number" },
+            servings: { type: "number" },
+            image_url: { type: "string" },
+          },
+        },
+        prompt: "Extract the complete recipe including all ingredients with quantities, all cooking steps in order, prep time, cook time, total time, number of servings, and the main dish photo URL.",
+      },
+      waitFor: 2000,
     }),
   });
   const raw = await res.text();
-  console.log("[tavily.extract] response status", res.status, "len", raw.length);
-  if (!res.ok) {
-    throw new Error(`tavily extract ${res.status} ${raw.slice(0, 200)}`);
-  }
+  console.log("[firecrawl.scrape] status:", res.status, "len:", raw.length);
+  if (!res.ok) throw new Error(`firecrawl ${res.status} ${raw.slice(0, 200)}`);
   const json = JSON.parse(raw) as {
-    results?: { url?: string; raw_content?: string; images?: string[] }[];
+    success: boolean;
+    data?: {
+      markdown?: string;
+      extract?: {
+        recipe_name?: string;
+        description?: string;
+        ingredients?: string[];
+        instructions?: string[];
+        prep_time_minutes?: number;
+        cook_time_minutes?: number;
+        total_time_minutes?: number;
+        servings?: number;
+        image_url?: string;
+      };
+      metadata?: {
+        title?: string;
+        description?: string;
+        ogImage?: string;
+      };
+    };
   };
-  const first = json.results?.[0];
-  console.log("[tavily.extract] first result raw_content len", first?.raw_content?.length ?? 0, "images", first?.images?.length ?? 0);
-  return first;
+  console.log(
+    "[firecrawl.scrape] success:", json.success,
+    "ingredients:", json.data?.extract?.ingredients?.length ?? 0,
+    "steps:", json.data?.extract?.instructions?.length ?? 0,
+  );
+  return json.data;
 }
 
 async function parseRecipeWithAI(opts: {
@@ -148,7 +176,7 @@ async function parseRecipeWithAI(opts: {
   const trimmed = pageContent.slice(0, 18000);
   const imagesHint = candidateImages.slice(0, 8).join("\n");
 
-  const prompt = `You are extracting a real recipe from a webpage so we can show it to a user.\n\nUser is looking for: "${dishName}"\nPage URL: ${pageUrl}\n\n--- PAGE TEXT START ---\n${trimmed}\n--- PAGE TEXT END ---\n\nCandidate image URLs found ON THIS EXACT PAGE (pick the BEST appetizing photo of the FINISHED dish from this list — never logos/ads/author headshots/site banners/unrelated thumbnails):\n${imagesHint}\n\nReturn the recipe by calling the report_recipe tool. Rules:\n- ingredients: clean strings with quantity + item ("2 tbsp olive oil", "1 lb salmon fillet"). Drop section headers like "For the sauce".\n- steps: numbered cooking steps in order, each a short paragraph. No "Step 1:" prefixes.\n- image_url: MUST be copied verbatim from the candidate image URLs listed above (these were scraped from this exact recipe page). Do NOT invent URLs, do NOT use images from other pages, do NOT guess. Prefer the large hero photo of the finished "${dishName}". If no candidate image clearly shows the finished dish, pick the first candidate that is a food photo.\n- summary: 1-2 enticing sentences describing the dish.\n- If the page is clearly NOT a recipe for "${dishName}" (e.g. listicle, ad, or different dish), do not invent — call the tool with an empty ingredients array so we know to skip.`;
+  const prompt = `Extract a real recipe from this webpage content.\n\nDish: "${dishName}"\nPage URL: ${pageUrl}\n\n--- CONTENT ---\n${trimmed}\n--- END ---\n\nCandidate images:\n${imagesHint || "(none)"}\n\nCall report_recipe. Rules:\n- ingredients: quantities + item ("2 tbsp olive oil")\n- steps: cooking steps in order, no "Step 1:" prefixes\n- image_url: use from candidates if available, else omit\n- If not a recipe for "${dishName}", return empty ingredients array`;
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -159,11 +187,7 @@ async function parseRecipeWithAI(opts: {
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        {
-          role: "system",
-          content:
-            "You extract structured recipes from messy webpage text. Always reply by calling the provided tool.",
-        },
+        { role: "system", content: "Extract structured recipes from webpage text. Always reply by calling the provided tool." },
         { role: "user", content: prompt },
       ],
       tools: [
@@ -177,7 +201,7 @@ async function parseRecipeWithAI(opts: {
               properties: {
                 title: { type: "string" },
                 summary: { type: "string" },
-                image_url: { type: "string" },
+                image_url: { type: ["string", "null"] },
                 ingredients: { type: "array", items: { type: "string" } },
                 steps: { type: "array", items: { type: "string" } },
                 prep_minutes: { type: ["integer", "null"] },
@@ -185,7 +209,7 @@ async function parseRecipeWithAI(opts: {
                 total_minutes: { type: ["integer", "null"] },
                 servings: { type: ["integer", "null"] },
               },
-              required: ["title", "summary", "image_url", "ingredients", "steps"],
+              required: ["title", "summary", "ingredients", "steps"],
               additionalProperties: false,
             },
           },
@@ -204,43 +228,28 @@ async function parseRecipeWithAI(opts: {
   const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) return null;
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(args);
-  } catch {
+  try { parsed = JSON.parse(args); } catch { return null; }
+  const result = RecipeSchema.safeParse(parsed);
+  if (!result.success) {
+    console.warn("[ai.parse] schema failed:", result.error.issues);
     return null;
   }
-  const result = RecipeSchema.safeParse(parsed);
-  if (!result.success) return null;
-  // Skip if obviously empty
   if (result.data.ingredients.length < 2 || result.data.steps.length < 2) return null;
   return result.data;
 }
 
-async function rehostImage(
-  imageUrl: string,
-  mealId: string,
-): Promise<string | null> {
+async function rehostImage(imageUrl: string, mealId: string): Promise<string | null> {
   try {
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const res = await fetch(imageUrl, {
-      headers: {
-        // Some sites 403 without a UA
-        "User-Agent":
-          "Mozilla/5.0 (compatible; LovingBitesBot/1.0; +https://lovable.app)",
-      },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; SwipeBiteBot/1.0)" },
     });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "image/jpeg";
     if (!contentType.startsWith("image/")) return null;
     const buf = new Uint8Array(await res.arrayBuffer());
     if (buf.byteLength < 2000 || buf.byteLength > 8 * 1024 * 1024) return null;
-    const ext = contentType.includes("png")
-      ? "png"
-      : contentType.includes("webp")
-        ? "webp"
-        : "jpg";
+    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
     const path = `${mealId}.${ext}`;
     const { error: upErr } = await supabaseAdmin.storage
       .from("recipe-images")
@@ -253,33 +262,28 @@ async function rehostImage(
   }
 }
 
-
 export const enrichMealRecipe = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { mealId: string; glutenFree?: boolean }) =>
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
-    // Reads use the user-authenticated client. The service-role admin client
-    // is only needed to write the shared `recipes` cache row — we lazy-load
-    // it inside each write branch so a missing SUPABASE_SERVICE_ROLE_KEY
-    // does not prevent Tavily from running and returning a real recipe.
     const db = context.supabase;
+
     async function getAdmin() {
       try {
         const mod = await import("@/integrations/supabase/client.server");
         return mod.supabaseAdmin;
       } catch (e) {
-        console.warn("[enrich] admin client unavailable, skipping cache write", e);
+        console.warn("[enrich] admin client unavailable", e);
         return null;
       }
     }
+
     try {
       const glutenFree = data.glutenFree === true;
 
-
-      // 1. Cached? Skip cache when gluten-free is requested so we re-search
-      // Tavily with the "gluten-free" keyword prioritized.
+      // 1. Return cached recipe
       const { data: existing } = await db
         .from("recipes")
         .select("*")
@@ -287,10 +291,11 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         .maybeSingle();
 
       if (!glutenFree && existing && existing.enrichment_status === "ready") {
+        console.log("[enrich] cache hit for", data.mealId);
         return { recipe: existing as unknown as DbRecipe, error: null };
       }
 
-      // 2. Look up the meal name
+      // 2. Look up meal
       const { data: meal, error: mealErr } = await db
         .from("meals")
         .select("id,name,cuisine,image_url")
@@ -299,118 +304,191 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       if (mealErr || !meal) return { recipe: null, error: "Meal not found" };
 
       const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+      const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
       const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-      console.log("[enrich] meal", meal.name, "tavilyKey?", !!TAVILY_API_KEY, "lovableKey?", !!LOVABLE_API_KEY, "glutenFree", glutenFree);
-      if (!TAVILY_API_KEY || !LOVABLE_API_KEY) {
-        console.error("[enrich] missing keys");
+
+      console.log("[enrich] meal:", meal.name, "| tavily:", !!TAVILY_API_KEY, "| firecrawl:", !!FIRECRAWL_API_KEY, "| lovable:", !!LOVABLE_API_KEY);
+
+      if (!TAVILY_API_KEY) {
         return { recipe: null, error: "Recipe agent not configured" };
       }
 
-      // 3. Search
-      // When the user has the "Gluten-free only" filter on, prioritize the
-      // "gluten-free" keyword in the Tavily search query so results are
-      // gluten-free recipes (not regular recipes that happen to omit wheat).
+      // 3. Tavily Search
       const query = glutenFree
-        ? `gluten-free ${meal.name} recipe gluten-free ingredients no wheat no flour`
-        : `${meal.name} recipe with photo and ingredients`;
+        ? `gluten-free ${meal.name} recipe ingredients steps`
+        : `${meal.name} recipe ingredients steps`;
+
       let search;
       try {
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
-        console.error("tavily search failed", e);
-        const adminA = await getAdmin();
-        if (adminA) {
-          try {
-            await adminA.from("recipes").upsert({
-              meal_id: meal.id,
-              enrichment_status: "failed",
-              enrichment_error: "search_failed",
-              attempted_at: new Date().toISOString(),
-            });
-          } catch (we) {
-            console.warn("[enrich] failed-row write skipped", we);
-          }
+        console.error("[enrich] tavily search failed:", e);
+        const admin = await getAdmin();
+        if (admin) {
+          await admin.from("recipes").upsert({
+            meal_id: meal.id,
+            enrichment_status: "failed",
+            enrichment_error: "tavily_search_failed",
+            attempted_at: new Date().toISOString(),
+          }).catch(() => {});
         }
         return { recipe: null, error: "Recipe search failed" };
       }
+
       const candidates = (search.results ?? [])
         .filter((r) => r.url && ALLOWED_DOMAINS.some((d) => safeHost(r.url!).endsWith(d)))
         .slice(0, 4);
-      console.log("[enrich] candidates after domain filter", candidates.length, candidates.map((c) => c.url));
+
+      console.log("[enrich] candidates:", candidates.length, candidates.map((c) => c.url));
+
+      if (candidates.length === 0) {
+        const admin = await getAdmin();
+        if (admin) {
+          await admin.from("recipes").upsert({
+            meal_id: meal.id,
+            enrichment_status: "failed",
+            enrichment_error: "no_candidates",
+            attempted_at: new Date().toISOString(),
+          }).catch(() => {});
+        }
+        return { recipe: null, error: "No recipe found" };
+      }
+
+      const searchImages = (search.images ?? []).filter(
+        (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
+      );
+
       // 4. Try each candidate
       let extracted: Recipe | null = null;
       let chosenUrl: string | null = null;
+
       for (const cand of candidates) {
         if (!cand.url) continue;
+        console.log("[enrich] trying:", cand.url);
+
         try {
-          const ex = await tavilyExtract(TAVILY_API_KEY, cand.url);
-          const content = ex?.raw_content ?? cand.content ?? "";
-          if (!content || content.length < 400) continue;
-          // Image fallback chain: page images first, then broader search
-          // images, then the meal's own image_url, then null (UI uses
-          // meal-placeholder.jpg).
-          const pageImages = (ex?.images ?? []).filter(
-            (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
-          );
-          const searchImages = (search.images ?? []).filter(
-            (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
-          );
-          const fallbackImage: string | null =
-            pageImages[0] ?? searchImages[0] ?? meal.image_url ?? null;
-          const recipe = await parseRecipeWithAI({
-            lovableKey: LOVABLE_API_KEY,
-            dishName: meal.name,
-            pageUrl: cand.url,
-            pageContent: content,
-            candidateImages: pageImages,
-          });
-          if (recipe) {
-            // Only trust AI's image if it came from this page; otherwise use
-            // the fallback chain (may be null).
-            if (!recipe.image_url || !pageImages.includes(recipe.image_url)) {
-              recipe.image_url = fallbackImage;
+          // 4a. Firecrawl structured extract (best quality)
+          if (FIRECRAWL_API_KEY) {
+            try {
+              const fc = await firecrawlScrape(FIRECRAWL_API_KEY, cand.url);
+              const ext = fc?.extract;
+
+              if (ext && (ext.ingredients?.length ?? 0) >= 2 && (ext.instructions?.length ?? 0) >= 2) {
+                console.log("[firecrawl] structured extract success!");
+                const imageUrl =
+                  ext.image_url ||
+                  fc?.metadata?.ogImage ||
+                  searchImages[0] ||
+                  (meal.image_url as string | null) ||
+                  null;
+
+                const recipe: Recipe = {
+                  title: ext.recipe_name || fc?.metadata?.title || meal.name,
+                  summary: ext.description || fc?.metadata?.description || `A delicious ${meal.name} recipe.`,
+                  image_url: imageUrl,
+                  ingredients: ext.ingredients ?? [],
+                  steps: ext.instructions ?? [],
+                  prep_minutes: ext.prep_time_minutes ?? null,
+                  cook_minutes: ext.cook_time_minutes ?? null,
+                  total_minutes: ext.total_time_minutes ?? null,
+                  servings: ext.servings ?? null,
+                };
+
+                const valid = RecipeSchema.safeParse(recipe);
+                if (valid.success) {
+                  extracted = valid.data;
+                  chosenUrl = cand.url;
+                  break;
+                }
+              }
+
+              // 4b. Firecrawl markdown + AI parse
+              const markdown = fc?.markdown ?? "";
+              if (markdown.length >= 400 && LOVABLE_API_KEY) {
+                const pageImages = [
+                  ext?.image_url,
+                  fc?.metadata?.ogImage,
+                  ...searchImages,
+                ].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u));
+
+                const recipe = await parseRecipeWithAI({
+                  lovableKey: LOVABLE_API_KEY,
+                  dishName: meal.name,
+                  pageUrl: cand.url,
+                  pageContent: markdown,
+                  candidateImages: pageImages,
+                });
+
+                if (recipe) {
+                  if (!recipe.image_url) {
+                    recipe.image_url = pageImages[0] ?? (meal.image_url as string | null) ?? null;
+                  }
+                  extracted = recipe;
+                  chosenUrl = cand.url;
+                  break;
+                }
+              }
+            } catch (fcErr) {
+              console.warn("[firecrawl] failed for", cand.url, ":", fcErr);
             }
-            extracted = recipe;
-            chosenUrl = cand.url;
-            break;
+          }
+
+          // 4c. Fallback: Tavily snippet + AI
+          if (!extracted && LOVABLE_API_KEY) {
+            const content = cand.content ?? "";
+            if (content.length >= 100) {
+              console.log("[enrich] AI fallback on Tavily snippet for", cand.url);
+              const recipe = await parseRecipeWithAI({
+                lovableKey: LOVABLE_API_KEY,
+                dishName: meal.name,
+                pageUrl: cand.url,
+                pageContent: content,
+                candidateImages: searchImages,
+              });
+              if (recipe) {
+                if (!recipe.image_url) {
+                  recipe.image_url = searchImages[0] ?? (meal.image_url as string | null) ?? null;
+                }
+                extracted = recipe;
+                chosenUrl = cand.url;
+                break;
+              }
+            }
           }
         } catch (e) {
-          console.error("candidate failed", cand.url, e);
+          console.error("[enrich] candidate error:", cand.url, e);
           continue;
         }
       }
 
+      // 5. All candidates exhausted
       if (!extracted || !chosenUrl) {
-        const adminB = await getAdmin();
-        if (adminB) {
-          try {
-            await adminB.from("recipes").upsert({
-              meal_id: meal.id,
-              enrichment_status: "failed",
-              enrichment_error: "no_good_candidate",
-              attempted_at: new Date().toISOString(),
-            });
-          } catch (we) {
-            console.warn("[enrich] failed-row write skipped", we);
-          }
+        console.warn("[enrich] no recipe extracted from any candidate");
+        const admin = await getAdmin();
+        if (admin) {
+          await admin.from("recipes").upsert({
+            meal_id: meal.id,
+            enrichment_status: "failed",
+            enrichment_error: "no_good_candidate",
+            attempted_at: new Date().toISOString(),
+          }).catch(() => {});
         }
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
 
-      // 5. Re-host image (fallback to original if rehost fails, null if no image)
-      const imageToHost = extracted.image_url ?? meal.image_url ?? null;
-      const hostedImage = imageToHost
-        ? ((await rehostImage(imageToHost, meal.id)) ?? imageToHost)
-        : null;
+      // 6. Re-host image (soft fail)
+      const finalImage = extracted.image_url
+        ? (await rehostImage(extracted.image_url, meal.id)) ?? extracted.image_url
+        : (meal.image_url as string | null) ?? null;
 
-      // 6. Save
+      // 7. Save to cache
       const row = {
         meal_id: meal.id,
         source_url: chosenUrl,
         source_domain: safeHost(chosenUrl),
         title: extracted.title,
         summary: extracted.summary,
-        image_url: hostedImage,
+        image_url: finalImage,
         ingredients: extracted.ingredients,
         steps: extracted.steps,
         prep_minutes: extracted.prep_minutes ?? null,
@@ -422,19 +500,18 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         attempted_at: new Date().toISOString(),
         enriched_at: new Date().toISOString(),
       };
-      const adminC = await getAdmin();
-      if (adminC) {
-        try {
-          const { error: upErr } = await adminC.from("recipes").upsert(row);
-          if (upErr) console.warn("[enrich] recipes upsert failed (returning recipe anyway)", upErr);
-        } catch (we) {
-          console.warn("[enrich] cache write skipped (admin unavailable)", we);
-        }
+
+      const admin = await getAdmin();
+      if (admin) {
+        const { error: upErr } = await admin.from("recipes").upsert(row);
+        if (upErr) console.warn("[enrich] upsert failed (returning anyway):", upErr);
       }
 
+      console.log("[enrich] success for", meal.name, "from", chosenUrl);
       return { recipe: row as unknown as DbRecipe, error: null };
+
     } catch (e) {
-      console.error("enrichMealRecipe outer error", e);
+      console.error("[enrich] outer error:", e);
       return { recipe: null, error: "Recipe agent failed" };
     }
   });
