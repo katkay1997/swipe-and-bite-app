@@ -293,7 +293,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       // 2. Look up the meal name
       const { data: meal, error: mealErr } = await db
         .from("meals")
-        .select("id,name,cuisine")
+        .select("id,name,cuisine,image_url")
         .eq("id", data.mealId)
         .single();
       if (mealErr || !meal) return { recipe: null, error: "Meal not found" };
