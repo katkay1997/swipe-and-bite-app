@@ -40,7 +40,7 @@ const ALLOWED_DOMAINS = [
 const RecipeSchema = z.object({
   title: z.string().min(2).max(200),
   summary: z.string().min(10).max(400),
-  image_url: z.string().url().nullable().optional(),
+  image_url: z.string().url().optional().nullable(),
   ingredients: z
     .array(z.string().min(1).max(200))
     .min(2)
@@ -398,8 +398,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       }
 
       // 5. Re-host image (fallback to original if rehost fails, null if no image)
-      const hostedImage = extracted.image_url
-        ? ((await rehostImage(extracted.image_url, meal.id)) ?? extracted.image_url)
+      const imageToHost = extracted.image_url ?? meal.image_url ?? null;
+      const hostedImage = imageToHost
+        ? ((await rehostImage(imageToHost, meal.id)) ?? imageToHost)
         : null;
 
       // 6. Save
