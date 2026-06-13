@@ -346,16 +346,17 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
           const ex = await tavilyExtract(TAVILY_API_KEY, cand.url);
           const content = ex?.raw_content ?? cand.content ?? "";
           if (!content || content.length < 400) continue;
-          // Only images scraped from THIS exact recipe page. Do not mix in
-          // images from the broader Tavily search — those come from other
-          // pages and cause unrelated hero photos.
+          // Image fallback chain: page images first, then broader search
+          // images, then the meal's own image_url, then null (UI uses
+          // meal-placeholder.jpg).
           const pageImages = (ex?.images ?? []).filter(
             (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
           );
-          if (pageImages.length === 0) {
-            console.warn("no page images for", cand.url, "— skipping");
-            continue;
-          }
+          const searchImages = (search.images ?? []).filter(
+            (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
+          );
+          const fallbackImage: string | null =
+            pageImages[0] ?? searchImages[0] ?? meal.image_url ?? null;
           const recipe = await parseRecipeWithAI({
             lovableKey: LOVABLE_API_KEY,
             dishName: meal.name,
@@ -364,9 +365,10 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
             candidateImages: pageImages,
           });
           if (recipe) {
-            // Enforce the chosen image actually came from this page.
-            if (!pageImages.includes(recipe.image_url)) {
-              recipe.image_url = pageImages[0];
+            // Only trust AI's image if it came from this page; otherwise use
+            // the fallback chain (may be null).
+            if (!recipe.image_url || !pageImages.includes(recipe.image_url)) {
+              recipe.image_url = fallbackImage;
             }
             extracted = recipe;
             chosenUrl = cand.url;
@@ -395,9 +397,10 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
 
-      // 5. Re-host image (fallback to original if rehost fails)
-      const hostedImage =
-        (await rehostImage(extracted.image_url, meal.id)) ?? extracted.image_url;
+      // 5. Re-host image (fallback to original if rehost fails, null if no image)
+      const hostedImage = extracted.image_url
+        ? ((await rehostImage(extracted.image_url, meal.id)) ?? extracted.image_url)
+        : null;
 
       // 6. Save
       const row = {
