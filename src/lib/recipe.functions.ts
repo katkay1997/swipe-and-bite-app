@@ -40,7 +40,7 @@ const ALLOWED_DOMAINS = [
 const RecipeSchema = z.object({
   title: z.string().min(2).max(200),
   summary: z.string().min(10).max(400),
-  image_url: z.string().url(),
+  image_url: z.string().url().nullable().optional(),
   ingredients: z
     .array(z.string().min(1).max(200))
     .min(2)
