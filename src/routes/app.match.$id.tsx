@@ -149,12 +149,15 @@ function RecipeHeader({
   const [recipeLoading, setRecipeLoading] = useState(true);
 
   useEffect(() => {
+    console.log("RECIPE EFFECT FIRING", meal.id);
     let cancelled = false;
     (async () => {
       setRecipeLoading(true);
       try {
+        console.log("ABOUT TO CALL ENRICH");
         const gfOnly = typeof window !== "undefined" && sessionStorage.getItem("swipebite.glutenFreeOnly") === "1";
         const res = await enrich({ data: { mealId: meal.id, glutenFree: gfOnly } });
+        console.log("ENRICH RESPONSE:", res);
         if (!cancelled && res.recipe) {
           setRecipe({
             image_url: res.recipe.image_url,
