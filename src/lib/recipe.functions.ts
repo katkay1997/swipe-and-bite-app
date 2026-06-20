@@ -325,12 +325,14 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         console.error("[enrich] tavily search failed:", e);
         const admin = await getAdmin();
         if (admin) {
-          await admin.from("recipes").upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "tavily_search_failed",
-            attempted_at: new Date().toISOString(),
-          }).catch(() => {});
+          try {
+            await admin.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "tavily_search_failed",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch {}
         }
         return { recipe: null, error: "Recipe search failed" };
       }
@@ -344,12 +346,14 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       if (candidates.length === 0) {
         const admin = await getAdmin();
         if (admin) {
-          await admin.from("recipes").upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "no_candidates",
-            attempted_at: new Date().toISOString(),
-          }).catch(() => {});
+          try {
+            await admin.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "no_candidates",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch {}
         }
         return { recipe: null, error: "No recipe found" };
       }
@@ -466,12 +470,14 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         console.warn("[enrich] no recipe extracted from any candidate");
         const admin = await getAdmin();
         if (admin) {
-          await admin.from("recipes").upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "no_good_candidate",
-            attempted_at: new Date().toISOString(),
-          }).catch(() => {});
+          try {
+            await admin.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "no_good_candidate",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch {}
         }
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
