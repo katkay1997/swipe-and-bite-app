@@ -67,7 +67,8 @@ type DbRecipe = {
 function safeHost(url: string): string {
   try {
     return new URL(url).host.replace(/^www\./, "");
-  } catch {
+  } catch (e) {
+    console.error("[enrich] catch-1:", e instanceof Error ? e.message : String(e));
     return "";
   }
 }
@@ -228,7 +229,10 @@ async function parseRecipeWithAI(opts: {
   const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) return null;
   let parsed: unknown;
-  try { parsed = JSON.parse(args); } catch { return null; }
+  try { parsed = JSON.parse(args); } catch (e) {
+    console.error("[enrich] catch-2:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
   const result = RecipeSchema.safeParse(parsed);
   if (!result.success) {
     console.warn("[ai.parse] schema failed:", result.error.issues);
@@ -257,7 +261,8 @@ async function rehostImage(imageUrl: string, mealId: string): Promise<string | n
     if (upErr) return null;
     const { data: pub } = supabaseAdmin.storage.from("recipe-images").getPublicUrl(path);
     return pub.publicUrl;
-  } catch {
+  } catch (e) {
+    console.error("[enrich] catch-3:", e instanceof Error ? e.message : String(e));
     return null;
   }
 }
@@ -275,6 +280,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         const mod = await import("@/integrations/supabase/client.server");
         return mod.supabaseAdmin;
       } catch (e) {
+        console.error("[enrich] catch-4:", e instanceof Error ? e.message : String(e));
         console.warn("[enrich] admin client unavailable", e);
         return null;
       }
@@ -322,6 +328,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       try {
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
+        console.error("[enrich] catch-5:", e instanceof Error ? e.message : String(e));
         console.error("[enrich] tavily search failed:", e);
         const admin = await getAdmin();
         if (admin) {
@@ -332,7 +339,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
               enrichment_error: "tavily_search_failed",
               attempted_at: new Date().toISOString(),
             });
-          } catch {}
+          } catch (e) {
+            console.error("[enrich] catch-6:", e instanceof Error ? e.message : String(e));
+          }
         }
         return { recipe: null, error: "Recipe search failed" };
       }
@@ -353,7 +362,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
               enrichment_error: "no_candidates",
               attempted_at: new Date().toISOString(),
             });
-          } catch {}
+          } catch (e) {
+            console.error("[enrich] catch-7:", e instanceof Error ? e.message : String(e));
+          }
         }
         return { recipe: null, error: "No recipe found" };
       }
@@ -432,8 +443,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
                   break;
                 }
               }
-            } catch (fcErr) {
-              console.warn("[firecrawl] failed for", cand.url, ":", fcErr);
+            } catch (e) {
+              console.error("[enrich] catch-8:", e instanceof Error ? e.message : String(e));
+              console.warn("[firecrawl] failed for", cand.url, ":", e);
             }
           }
 
@@ -460,6 +472,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
             }
           }
         } catch (e) {
+          console.error("[enrich] catch-9:", e instanceof Error ? e.message : String(e));
           console.error("[enrich] candidate error:", cand.url, e);
           continue;
         }
@@ -477,7 +490,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
               enrichment_error: "no_good_candidate",
               attempted_at: new Date().toISOString(),
             });
-          } catch {}
+          } catch (e) {
+            console.error("[enrich] catch-10:", e instanceof Error ? e.message : String(e));
+          }
         }
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
@@ -517,9 +532,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       return { recipe: row as unknown as DbRecipe, error: null };
 
     } catch (e) {
-      console.error("[enrich] catch:", e instanceof Error ? e.message : String(e));
-      console.error("[enrich] outer catch error details:", e instanceof Error ? e.message : String(e));
-      console.error("[enrich] outer error:", e);
+      console.error("[enrich] catch-11:", e instanceof Error ? e.message : String(e));
       return { recipe: null, error: "Recipe agent failed" };
     }
   });
