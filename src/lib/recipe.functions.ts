@@ -517,6 +517,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       return { recipe: row as unknown as DbRecipe, error: null };
 
     } catch (e) {
+      console.error("[enrich] outer catch error details:", e instanceof Error ? e.message : String(e));
       console.error("[enrich] outer error:", e);
       return { recipe: null, error: "Recipe agent failed" };
     }
