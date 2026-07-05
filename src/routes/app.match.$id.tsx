@@ -114,6 +114,7 @@ function MatchDetailPage() {
     if (!meal || !userId) return;
     const { error } = await supabase.from("pins").insert({ user_id: userId, meal_id: meal.id });
     if (error) {
+      console.error(error);
       toast.error("Couldn't log it");
       return;
     }
