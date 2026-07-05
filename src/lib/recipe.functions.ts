@@ -273,7 +273,11 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
-    const db = context.supabase;
+    const { createClient } = await import("@supabase/supabase-js");
+    const db = context?.supabase ?? createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_PUBLISHABLE_KEY!
+    );
 
     async function getAdmin() {
       try {
