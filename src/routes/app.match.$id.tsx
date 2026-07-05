@@ -120,6 +120,7 @@ function MatchDetailPage() {
       );
     if (error) {
       console.error(error);
+      console.error("PIN INSERT ERROR:", error);
       toast.error("Couldn't log it");
       return;
     }
