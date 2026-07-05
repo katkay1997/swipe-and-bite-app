@@ -245,7 +245,7 @@ function PinGrid({
         const imgSrc =
           (p.meal_id ? recipeImageByMeal[p.meal_id] : undefined) ||
           p.meal?.image_url ||
-          "/meal-placeholder.jpg";
+          mealPlaceholder;
         const content = (
           <>
             <img
@@ -255,8 +255,8 @@ function PinGrid({
               className="h-40 w-full object-cover bg-muted"
               onError={(e) => {
                 const el = e.currentTarget;
-                if (el.src.endsWith("/meal-placeholder.jpg")) return;
-                el.src = "/meal-placeholder.jpg";
+                if (el.src.endsWith(mealPlaceholder)) return;
+                el.src = mealPlaceholder;
               }}
             />
             <div className="p-3">
