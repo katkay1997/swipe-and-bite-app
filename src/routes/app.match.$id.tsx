@@ -112,7 +112,12 @@ function MatchDetailPage() {
 
   async function markAte() {
     if (!meal || !userId) return;
-    const { error } = await supabase.from("pins").insert({ user_id: userId, meal_id: meal.id });
+    const { error } = await supabase
+      .from("pins")
+      .upsert(
+        { user_id: userId, meal_id: meal.id },
+        { onConflict: "user_id,meal_id", ignoreDuplicates: true }
+      );
     if (error) {
       console.error(error);
       toast.error("Couldn't log it");
