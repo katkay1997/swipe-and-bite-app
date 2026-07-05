@@ -39,6 +39,7 @@ function MatchesPage() {
   const [rows, setRows] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<MealTime | null>(null);
+  const [recipeImageByMeal, setRecipeImageByMeal] = useState<Record<string, string>>({});
 
   // Read meal-time filter set by the slider on the mode page.
   // Only applied when the user explicitly changed it.
@@ -67,7 +68,21 @@ function MatchesPage() {
         .eq("archived", false)
         .eq("mode", "cook")
         .order("matched_at", { ascending: false });
-      setRows((data as MatchRow[]) || []);
+      const rowsData = (data as MatchRow[]) || [];
+      setRows(rowsData);
+
+      const mealIds = Array.from(new Set(rowsData.map((r) => r.meal?.id).filter(Boolean) as string[]));
+      if (mealIds.length > 0) {
+        const { data: recipes } = await supabase
+          .from("recipes")
+          .select("meal_id, image_url")
+          .in("meal_id", mealIds);
+        const rmap: Record<string, string> = {};
+        for (const r of recipes || []) {
+          if (r.meal_id && r.image_url) rmap[r.meal_id] = r.image_url;
+        }
+        setRecipeImageByMeal(rmap);
+      }
       setLoading(false);
     }
   }, [userId]);
@@ -191,7 +206,7 @@ function MatchesPage() {
                 {m.meal?.image_url && (
                   <div
                     className="h-40 w-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${m.meal.image_url})` }}
+                    style={{ backgroundImage: `url(${recipeImageByMeal[m.meal.id] || m.meal.image_url})` }}
                   />
                 )}
                 <div className="flex items-center justify-between p-3">
