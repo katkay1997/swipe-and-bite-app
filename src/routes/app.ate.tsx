@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { estimateMealNutrition } from "@/lib/match.functions";
+import mealPlaceholder from "@/assets/meal-placeholder.jpg";
 
 type PinRow = Tables<"pins"> & { meal: Tables<"meals"> | null };
 type Nutrition = {
