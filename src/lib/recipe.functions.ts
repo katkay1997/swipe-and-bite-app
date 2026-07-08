@@ -321,6 +321,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         return { recipe: existing as unknown as DbRecipe, error: null };
       }
 
+      // KILL SWITCH: enrichment temporarily disabled. Return cached row if
+      // present (any status), otherwise surface a clear error without
+      // writing a pending row or making any Tavily/Firecrawl calls.
+      if (!ENRICHMENT_ENABLED) {
+        console.log("[enrich] disabled by ENRICHMENT_ENABLED flag");
+        if (existing) {
+          return { recipe: existing as unknown as DbRecipe, error: null };
+        }
+        return { recipe: null, error: "Recipe enrichment temporarily disabled" };
+      }
+
+
+
       // 2. Look up meal
       const { data: meal, error: mealErr } = await db
         .from("meals")
