@@ -115,7 +115,11 @@ async function tavilySearch(apiKey: string, query: string) {
 }
 
 async function firecrawlScrape(apiKey: string, url: string) {
+  if (!ENRICHMENT_ENABLED) {
+    throw new Error("firecrawl disabled by ENRICHMENT_ENABLED flag");
+  }
   console.log("[firecrawl.scrape] scraping:", url);
+
   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: {
