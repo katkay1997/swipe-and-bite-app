@@ -149,10 +149,17 @@ export const searchGroceryStores = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data }) => {
+    // TEMPORARY KILL SWITCH — hard-disables the Tavily grocery-store search
+    // network call below. Flip to true to re-enable.
+    const GROCERY_SEARCH_ENABLED = false;
+    if (!GROCERY_SEARCH_ENABLED) {
+      return { results: [], answer: null, error: "Grocery search temporarily disabled" };
+    }
     const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
     if (!TAVILY_API_KEY) {
       return { results: [], answer: null, error: "Grocery search not configured" };
     }
+
     const query = `grocery stores near ${data.zipCode}`;
     try {
       const res = await fetch("https://api.tavily.com/search", {
