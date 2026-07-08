@@ -2,6 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// TEMPORARY KILL SWITCH — set to false to hard-disable all Tavily + Firecrawl
+// network calls in this file. Flip back to true to re-enable enrichment.
+// While false: tavilySearch() and firecrawlScrape() throw before fetch,
+// and the enrichMealRecipe handler short-circuits after the cache check
+// without writing a pending row.
+const ENRICHMENT_ENABLED = false;
+
+
 /**
  * Real-recipe enrichment pipeline — Tavily + Firecrawl edition.
  *
