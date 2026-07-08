@@ -82,6 +82,9 @@ function safeHost(url: string): string {
 }
 
 async function tavilySearch(apiKey: string, query: string) {
+  if (!ENRICHMENT_ENABLED) {
+    throw new Error("tavily disabled by ENRICHMENT_ENABLED flag");
+  }
   const body = {
     query,
     search_depth: "advanced",
@@ -91,6 +94,7 @@ async function tavilySearch(apiKey: string, query: string) {
     include_domains: ALLOWED_DOMAINS,
   };
   console.log("[tavily.search] query:", query);
+
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
