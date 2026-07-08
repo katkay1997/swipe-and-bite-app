@@ -2,6 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// TEMPORARY KILL SWITCH — set to false to hard-disable all Tavily + Firecrawl
+// network calls in this file. Flip back to true to re-enable enrichment.
+// While false: tavilySearch() and firecrawlScrape() throw before fetch,
+// and the enrichMealRecipe handler short-circuits after the cache check
+// without writing a pending row.
+const ENRICHMENT_ENABLED = false;
+
+
 /**
  * Real-recipe enrichment pipeline — Tavily + Firecrawl edition.
  *
@@ -74,6 +82,9 @@ function safeHost(url: string): string {
 }
 
 async function tavilySearch(apiKey: string, query: string) {
+  if (!ENRICHMENT_ENABLED) {
+    throw new Error("tavily disabled by ENRICHMENT_ENABLED flag");
+  }
   const body = {
     query,
     search_depth: "advanced",
@@ -83,6 +94,7 @@ async function tavilySearch(apiKey: string, query: string) {
     include_domains: ALLOWED_DOMAINS,
   };
   console.log("[tavily.search] query:", query);
+
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -103,7 +115,11 @@ async function tavilySearch(apiKey: string, query: string) {
 }
 
 async function firecrawlScrape(apiKey: string, url: string) {
+  if (!ENRICHMENT_ENABLED) {
+    throw new Error("firecrawl disabled by ENRICHMENT_ENABLED flag");
+  }
   console.log("[firecrawl.scrape] scraping:", url);
+
   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: {
@@ -304,6 +320,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         console.log("[enrich] cache hit for", data.mealId);
         return { recipe: existing as unknown as DbRecipe, error: null };
       }
+
+      // KILL SWITCH: enrichment temporarily disabled. Return cached row if
+      // present (any status), otherwise surface a clear error without
+      // writing a pending row or making any Tavily/Firecrawl calls.
+      if (!ENRICHMENT_ENABLED) {
+        console.log("[enrich] disabled by ENRICHMENT_ENABLED flag");
+        if (existing) {
+          return { recipe: existing as unknown as DbRecipe, error: null };
+        }
+        return { recipe: null, error: "Recipe enrichment temporarily disabled" };
+      }
+
+
 
       // 2. Look up meal
       const { data: meal, error: mealErr } = await db
