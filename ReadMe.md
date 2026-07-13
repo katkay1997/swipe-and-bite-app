@@ -107,15 +107,5 @@ bun run lint       # Run ESLint
 bun run format     # Format code with Prettier
 ```
 
----
 
-## Contributing
 
-Pull requests are welcome. For major changes, open an issue first to discuss what you'd like to change.
-
-**Built at Brooklyn Hackathon 2026 by:**
-
-- Sanatjon Burkhanov
-- Muhammadali Nosirjonov
-- Yuzhen Chen
-- Katera McKay
