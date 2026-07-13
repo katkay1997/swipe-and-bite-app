@@ -169,7 +169,15 @@ export type Database = {
           tags?: string[]
           tools?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meals_require_recipe_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "recipes"
+            referencedColumns: ["meal_id"]
+          },
+        ]
       }
       pins: {
         Row: {
@@ -451,6 +459,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_meal_with_recipe: {
+        Args: {
+          p_meal: Json
+          p_recipe?: Json
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -1,6 +1,24 @@
 import type { Tables } from "@/integrations/supabase/types";
 
 type Meal = Tables<"meals">;
+export type Recipe = Tables<"recipes">;
+
+/** Meal row that is guaranteed to have its matching recipes row (DB 1:1). */
+export type MealWithRecipe = Meal & { recipes: Recipe };
+
+/**
+ * PostgREST select that enforces meal↔recipe pairing in queries.
+ * `recipes!inner` drops any meal that somehow lacks a recipes row.
+ */
+export const MEALS_WITH_RECIPE_SELECT = "*, recipes!inner(*)" as const;
+
+export function unwrapMealRecipe(
+  row: Meal & { recipes: Recipe | Recipe[] | null },
+): MealWithRecipe | null {
+  const recipes = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
+  if (!recipes) return null;
+  return { ...row, recipes };
+}
 
 export type SpiceLevel = "Not spicy" | "Med" | "Very spicy";
 

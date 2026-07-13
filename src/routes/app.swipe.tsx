@@ -10,10 +10,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { enrichMealRecipe } from "@/lib/recipe.functions";
-import { getSpiceLevel } from "@/lib/meal-helpers";
+import {
+  getSpiceLevel,
+  MEALS_WITH_RECIPE_SELECT,
+  unwrapMealRecipe,
+  type MealWithRecipe,
+} from "@/lib/meal-helpers";
 import placeholderImg from "@/assets/meal-placeholder.jpg";
 
-type Meal = Tables<"meals">;
+type Meal = MealWithRecipe;
 type RecipePreview = {
   image_url: string | null;
   ingredients: string[];
@@ -23,6 +28,26 @@ type RecipePreview = {
   servings: number | null;
   status: "loading" | "ready" | "failed";
 };
+
+function recipePreviewFromMeal(meal: Meal): RecipePreview {
+  const r = meal.recipes;
+  const ingredients = Array.isArray(r.ingredients)
+    ? (r.ingredients as string[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const steps = Array.isArray(r.steps)
+    ? (r.steps as string[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const ready = r.enrichment_status === "ready" && (ingredients.length > 0 || steps.length > 0);
+  return {
+    image_url: r.image_url ?? meal.image_url,
+    ingredients,
+    steps,
+    prep_minutes: r.prep_minutes ?? meal.prep_minutes,
+    total_minutes: r.total_minutes,
+    servings: r.servings,
+    status: ready ? "ready" : r.enrichment_status === "failed" ? "failed" : "loading",
+  };
+}
 
 const DECK_LIMIT = 20;
 
@@ -62,7 +87,11 @@ function isGlutenFree(meal: Meal): boolean {
 }
 
 // Score meals by user's past swipes (cuisine + tags overlap)
-function scoreMeals(meals: Meal[], likes: Meal[], dislikes: Meal[]): Meal[] {
+function scoreMeals(
+  meals: Meal[],
+  likes: Array<Pick<Tables<"meals">, "cuisine" | "tags">>,
+  dislikes: Array<Pick<Tables<"meals">, "cuisine" | "tags">>,
+): Meal[] {
   if (likes.length === 0 && dislikes.length === 0) return meals;
   const likedCuisines = new Map<string, number>();
   const likedTags = new Map<string, number>();
@@ -177,7 +206,11 @@ function SwipePage() {
           .select("meal_id, direction, meals(*)")
           .eq("user_id", userId)
           .eq("mode", mode),
-        supabase.from("meals").select("*").eq("is_alcohol", false).limit(500),
+        supabase
+          .from("meals")
+          .select(MEALS_WITH_RECIPE_SELECT)
+          .eq("is_alcohol", false)
+          .limit(500),
       ]);
       if (error) {
         toast.error("Couldn't load meals");
@@ -185,16 +218,19 @@ function SwipePage() {
         return;
       }
       const swipedIds = new Set((swipes || []).map((s) => s.meal_id));
-      const likes: Meal[] = [];
-      const dislikes: Meal[] = [];
+      const likes: Array<Pick<Tables<"meals">, "cuisine" | "tags">> = [];
+      const dislikes: Array<Pick<Tables<"meals">, "cuisine" | "tags">> = [];
       for (const s of swipes || []) {
-        const m = (s as unknown as { meals: Meal | null }).meals;
+        const m = (s as unknown as { meals: Tables<"meals"> | null }).meals;
         if (!m) continue;
         if ((s as { direction: string }).direction === "right") likes.push(m);
         else dislikes.push(m);
       }
 
-      let all = (meals || []).filter((m) => !swipedIds.has(m.id));
+      let all = ((meals || []) as Array<Tables<"meals"> & { recipes: Tables<"recipes"> | Tables<"recipes">[] }>)
+        .map(unwrapMealRecipe)
+        .filter((m): m is Meal => Boolean(m))
+        .filter((m) => !swipedIds.has(m.id));
       if (gfOnly) all = all.filter(isGlutenFree);
 
       const matchesSlot = (m: Meal) => {
@@ -239,7 +275,7 @@ function SwipePage() {
       }
 
       // Preload ALL 20 card images up-front so every slide is instant
-      const urls = fresh.map((m) => safeImage(m.image_url));
+      const urls = fresh.map((m) => safeImage(m.recipes.image_url ?? m.image_url));
       await Promise.all(urls.map(preloadImage));
 
       if (!cancelled) {
@@ -399,23 +435,19 @@ function SwipeCard({
   const rotate = useTransform(x, [-200, 0, 200], [-15, 0, 15]);
 
   const enrich = useServerFn(enrichMealRecipe);
-  const [recipe, setRecipe] = useState<RecipePreview>({
-    image_url: meal.image_url,
-    ingredients: [],
-    steps: [],
-    prep_minutes: meal.prep_minutes,
-    total_minutes: null,
-    servings: null,
-    status: "loading",
-  });
-  const [imgSrc, setImgSrc] = useState<string>(safeImage(meal.image_url));
+  const [recipe, setRecipe] = useState<RecipePreview>(() => recipePreviewFromMeal(meal));
+  const [imgSrc, setImgSrc] = useState<string>(safeImage(meal.recipes.image_url ?? meal.image_url));
 
   useEffect(() => {
     if (offset > 1) return;
+    // Already have a ready paired recipe — no enrichment call needed.
+    if (meal.recipes.enrichment_status === "ready") return;
     let cancelled = false;
     (async () => {
       try {
-        const gfOnly = typeof window !== "undefined" && sessionStorage.getItem("swipebite.glutenFreeOnly") === "1";
+        const gfOnly =
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("swipebite.glutenFreeOnly") === "1";
         const res = await enrich({ data: { mealId: meal.id, glutenFree: gfOnly } });
         if (cancelled) return;
         if (res.recipe) {
@@ -435,16 +467,32 @@ function SwipeCard({
             if (!cancelled) setImgSrc(newUrl);
           }
         } else {
-          setRecipe((r) => ({ ...r, status: "failed" }));
+          // Keep the paired recipes row content; mark failed only if empty.
+          setRecipe((r) => ({
+            ...r,
+            status: r.ingredients.length > 0 || r.steps.length > 0 ? "ready" : "failed",
+          }));
         }
       } catch {
-        if (!cancelled) setRecipe((r) => ({ ...r, status: "failed" }));
+        if (!cancelled) {
+          setRecipe((r) => ({
+            ...r,
+            status: r.ingredients.length > 0 || r.steps.length > 0 ? "ready" : "failed",
+          }));
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [meal.id, offset, enrich, meal.image_url, meal.prep_minutes]);
+  }, [
+    meal.id,
+    offset,
+    enrich,
+    meal.image_url,
+    meal.prep_minutes,
+    meal.recipes.enrichment_status,
+  ]);
 
   function onDragEnd(_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
     const threshold = 110;
@@ -562,10 +610,14 @@ function MatchOverlay({
   onView: () => void;
 }) {
   const ingredients = useMemo(() => {
+    const fromRecipe = Array.isArray(meal.recipes.ingredients)
+      ? (meal.recipes.ingredients as string[]).filter((x): x is string => typeof x === "string")
+      : [];
+    if (fromRecipe.length > 0) return fromRecipe.slice(0, 6);
     const arr = (meal.ingredients as Array<{ name: string; measure?: string }>) || [];
-    return arr.slice(0, 6);
-  }, [meal.ingredients]);
-  const [bgImg, setBgImg] = useState<string>(safeImage(meal.image_url));
+    return arr.slice(0, 6).map((i) => i.name).filter(Boolean);
+  }, [meal.ingredients, meal.recipes.ingredients]);
+  const [bgImg, setBgImg] = useState<string>(safeImage(meal.recipes.image_url ?? meal.image_url));
 
   return (
     <motion.div
@@ -610,7 +662,7 @@ function MatchOverlay({
               <ul className="mt-1 grid grid-cols-2 gap-1 text-sm">
                 {ingredients.map((ing, i) => (
                   <li key={i} className="truncate">
-                    • {ing.name}
+                    • {ing}
                   </li>
                 ))}
               </ul>
