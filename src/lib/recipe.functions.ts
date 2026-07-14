@@ -7,7 +7,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // While false: tavilySearch() and firecrawlScrape() throw before fetch,
 // and the enrichMealRecipe handler short-circuits after the cache check
 // without writing a pending row.
-const ENRICHMENT_ENABLED = false;
+const ENRICHMENT_ENABLED = true;
 
 
 /**
