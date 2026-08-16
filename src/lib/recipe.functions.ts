@@ -2,6 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// TEMPORARY KILL SWITCH — set to false to hard-disable all Tavily + Firecrawl
+// network calls in this file. Flip back to true to re-enable enrichment.
+// While false: tavilySearch() and firecrawlScrape() throw before fetch,
+// and the enrichMealRecipe handler short-circuits after the cache check
+// without writing a pending row.
+const ENRICHMENT_ENABLED = true;
+
+
 /**
  * Real-recipe enrichment pipeline — Tavily + Firecrawl edition.
  *
@@ -67,12 +75,16 @@ type DbRecipe = {
 function safeHost(url: string): string {
   try {
     return new URL(url).host.replace(/^www\./, "");
-  } catch {
+  } catch (e) {
+    console.error("[enrich] catch-1:", e instanceof Error ? e.message : String(e));
     return "";
   }
 }
 
 async function tavilySearch(apiKey: string, query: string) {
+  if (!ENRICHMENT_ENABLED) {
+    throw new Error("tavily disabled by ENRICHMENT_ENABLED flag");
+  }
   const body = {
     query,
     search_depth: "advanced",
@@ -82,6 +94,7 @@ async function tavilySearch(apiKey: string, query: string) {
     include_domains: ALLOWED_DOMAINS,
   };
   console.log("[tavily.search] query:", query);
+
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: {
@@ -102,7 +115,11 @@ async function tavilySearch(apiKey: string, query: string) {
 }
 
 async function firecrawlScrape(apiKey: string, url: string) {
+  if (!ENRICHMENT_ENABLED) {
+    throw new Error("firecrawl disabled by ENRICHMENT_ENABLED flag");
+  }
   console.log("[firecrawl.scrape] scraping:", url);
+
   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
     headers: {
@@ -228,7 +245,10 @@ async function parseRecipeWithAI(opts: {
   const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) return null;
   let parsed: unknown;
-  try { parsed = JSON.parse(args); } catch { return null; }
+  try { parsed = JSON.parse(args); } catch (e) {
+    console.error("[enrich] catch-2:", e instanceof Error ? e.message : String(e));
+    return null;
+  }
   const result = RecipeSchema.safeParse(parsed);
   if (!result.success) {
     console.warn("[ai.parse] schema failed:", result.error.issues);
@@ -257,7 +277,8 @@ async function rehostImage(imageUrl: string, mealId: string): Promise<string | n
     if (upErr) return null;
     const { data: pub } = supabaseAdmin.storage.from("recipe-images").getPublicUrl(path);
     return pub.publicUrl;
-  } catch {
+  } catch (e) {
+    console.error("[enrich] catch-3:", e instanceof Error ? e.message : String(e));
     return null;
   }
 }
@@ -268,13 +289,18 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
     z.object({ mealId: z.string().uuid(), glutenFree: z.boolean().optional() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<{ recipe: DbRecipe | null; error: string | null }> => {
-    const db = context.supabase;
+    const { createClient } = await import("@supabase/supabase-js");
+    const db = context?.supabase ?? createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_PUBLISHABLE_KEY!
+    );
 
     async function getAdmin() {
       try {
         const mod = await import("@/integrations/supabase/client.server");
         return mod.supabaseAdmin;
       } catch (e) {
+        console.error("[enrich] catch-4:", e instanceof Error ? e.message : String(e));
         console.warn("[enrich] admin client unavailable", e);
         return null;
       }
@@ -294,6 +320,19 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         console.log("[enrich] cache hit for", data.mealId);
         return { recipe: existing as unknown as DbRecipe, error: null };
       }
+
+      // KILL SWITCH: enrichment temporarily disabled. Return cached row if
+      // present (any status), otherwise surface a clear error without
+      // writing a pending row or making any Tavily/Firecrawl calls.
+      if (!ENRICHMENT_ENABLED) {
+        console.log("[enrich] disabled by ENRICHMENT_ENABLED flag");
+        if (existing) {
+          return { recipe: existing as unknown as DbRecipe, error: null };
+        }
+        return { recipe: null, error: "Recipe enrichment temporarily disabled" };
+      }
+
+
 
       // 2. Look up meal
       const { data: meal, error: mealErr } = await db
@@ -322,15 +361,20 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       try {
         search = await tavilySearch(TAVILY_API_KEY, query);
       } catch (e) {
+        console.error("[enrich] catch-5:", e instanceof Error ? e.message : String(e));
         console.error("[enrich] tavily search failed:", e);
         const admin = await getAdmin();
         if (admin) {
-          await admin.from("recipes").upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "tavily_search_failed",
-            attempted_at: new Date().toISOString(),
-          }).catch(() => {});
+          try {
+            await admin.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "tavily_search_failed",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.error("[enrich] catch-6:", e instanceof Error ? e.message : String(e));
+          }
         }
         return { recipe: null, error: "Recipe search failed" };
       }
@@ -344,12 +388,16 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       if (candidates.length === 0) {
         const admin = await getAdmin();
         if (admin) {
-          await admin.from("recipes").upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "no_candidates",
-            attempted_at: new Date().toISOString(),
-          }).catch(() => {});
+          try {
+            await admin.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "no_candidates",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.error("[enrich] catch-7:", e instanceof Error ? e.message : String(e));
+          }
         }
         return { recipe: null, error: "No recipe found" };
       }
@@ -428,8 +476,9 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
                   break;
                 }
               }
-            } catch (fcErr) {
-              console.warn("[firecrawl] failed for", cand.url, ":", fcErr);
+            } catch (e) {
+              console.error("[enrich] catch-8:", e instanceof Error ? e.message : String(e));
+              console.warn("[firecrawl] failed for", cand.url, ":", e);
             }
           }
 
@@ -456,6 +505,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
             }
           }
         } catch (e) {
+          console.error("[enrich] catch-9:", e instanceof Error ? e.message : String(e));
           console.error("[enrich] candidate error:", cand.url, e);
           continue;
         }
@@ -466,12 +516,16 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
         console.warn("[enrich] no recipe extracted from any candidate");
         const admin = await getAdmin();
         if (admin) {
-          await admin.from("recipes").upsert({
-            meal_id: meal.id,
-            enrichment_status: "failed",
-            enrichment_error: "no_good_candidate",
-            attempted_at: new Date().toISOString(),
-          }).catch(() => {});
+          try {
+            await admin.from("recipes").upsert({
+              meal_id: meal.id,
+              enrichment_status: "failed",
+              enrichment_error: "no_good_candidate",
+              attempted_at: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.error("[enrich] catch-10:", e instanceof Error ? e.message : String(e));
+          }
         }
         return { recipe: null, error: "Couldn't find a good recipe page" };
       }
@@ -511,7 +565,7 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
       return { recipe: row as unknown as DbRecipe, error: null };
 
     } catch (e) {
-      console.error("[enrich] outer error:", e);
+      console.error("[enrich] catch-11:", e instanceof Error ? e.message : String(e));
       return { recipe: null, error: "Recipe agent failed" };
     }
   });

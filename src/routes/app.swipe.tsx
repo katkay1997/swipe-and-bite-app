@@ -604,7 +604,7 @@ function MatchOverlay({
           {meal.cuisine && (
             <p className="mt-0.5 text-sm text-muted-foreground">{meal.cuisine}</p>
           )}
-          {mode === "cook" && ingredients.length > 0 && (
+          {ingredients.length > 0 && (
             <div className="mt-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground">You'll need</p>
               <ul className="mt-1 grid grid-cols-2 gap-1 text-sm">

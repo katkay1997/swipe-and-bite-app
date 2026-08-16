@@ -6,7 +6,6 @@ import {
   Flame,
   ChefHat,
   Loader2,
-  Sparkles,
   Search,
   Utensils,
   Store,
@@ -24,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
-import { estimateMealNutrition, searchGroceryStores } from "@/lib/match.functions";
+import { searchGroceryStores } from "@/lib/match.functions";
 import { enrichMealRecipe } from "@/lib/recipe.functions";
 import {
   getSpiceLevel,
@@ -47,15 +46,6 @@ type RecipeData = {
   cook_minutes: number | null;
   total_minutes: number | null;
   servings: number | null;
-};
-type Nutrition = {
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  cost_usd_low: number;
-  cost_usd_high: number;
-  notes?: string;
 };
 
 export const Route = createFileRoute("/app/match/$id")({
@@ -112,8 +102,15 @@ function MatchDetailPage() {
 
   async function markAte() {
     if (!meal || !userId) return;
-    const { error } = await supabase.from("pins").insert({ user_id: userId, meal_id: meal.id });
+    const { error } = await supabase
+      .from("pins")
+      .upsert(
+        { user_id: userId, meal_id: meal.id },
+        { onConflict: "user_id,meal_id", ignoreDuplicates: true }
+      );
     if (error) {
+      console.error(error);
+      console.error("PIN INSERT ERROR:", error);
       toast.error("Couldn't log it");
       return;
     }
@@ -149,12 +146,15 @@ function RecipeHeader({
   const [recipeLoading, setRecipeLoading] = useState(true);
 
   useEffect(() => {
+    console.log("RECIPE EFFECT FIRING", meal.id);
     let cancelled = false;
     (async () => {
       setRecipeLoading(true);
       try {
+        console.log("ABOUT TO CALL ENRICH");
         const gfOnly = typeof window !== "undefined" && sessionStorage.getItem("swipebite.glutenFreeOnly") === "1";
         const res = await enrich({ data: { mealId: meal.id, glutenFree: gfOnly } });
+        console.log("ENRICH RESPONSE:", res);
         if (!cancelled && res.recipe) {
           setRecipe({
             image_url: res.recipe.image_url,
@@ -300,14 +300,6 @@ function CookView({
         />
       </div>
 
-      <NutritionPanel
-        mealId={meal.id}
-        initial={meal.nutrition as Nutrition | null}
-        prepMinutes={recipe?.total_minutes ?? recipe?.prep_minutes ?? meal.prep_minutes}
-        cookMinutes={recipe?.cook_minutes ?? null}
-        servings={recipe?.servings ?? null}
-      />
-
       {recipeLoading && !recipe && (
         <section className="rounded-2xl bg-card p-6 text-center shadow-card">
           <Loader2 className="mx-auto animate-spin text-romance" />
@@ -409,118 +401,6 @@ function CookView({
       <Link to="/app/matches" className="block text-center text-sm text-muted-foreground underline">
         ← Back to matches
       </Link>
-    </div>
-  );
-}
-
-function NutritionPanel({
-  mealId,
-  initial,
-  prepMinutes,
-  cookMinutes,
-  servings,
-}: {
-  mealId: string;
-  initial: Nutrition | null;
-  prepMinutes: number | null;
-  cookMinutes: number | null;
-  servings: number | null;
-}) {
-  const estimate = useServerFn(estimateMealNutrition);
-  const hasInitial = !!(initial && typeof initial.calories === "number");
-  const [nutrition, setNutrition] = useState<Nutrition | null>(hasInitial ? initial : null);
-  const [loading, setLoading] = useState(!hasInitial);
-
-  useEffect(() => {
-    if (hasInitial) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await estimate({ data: { mealId } });
-        if (!cancelled) {
-          if (res.nutrition) setNutrition(res.nutrition);
-          // Silently ignore estimate errors — the parent already handles
-          // missing meals, and a failed nutrition estimate shouldn't toast
-          // (it just leaves the panel empty / cached values).
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [mealId, hasInitial, estimate]);
-
-  return (
-    <section className="rounded-2xl bg-card p-4 shadow-card">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Estimates
-        </h2>
-        <span className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
-          <Sparkles size={10} /> AI estimate
-        </span>
-      </div>
-
-      {loading && (
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-      )}
-
-      {!loading && nutrition && (
-        <>
-          <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-            <Stat label="cal" value={Math.round(nutrition.calories).toString()} />
-            <Stat label="protein" value={`${Math.round(nutrition.protein_g)}g`} />
-            <Stat label="carbs" value={`${Math.round(nutrition.carbs_g)}g`} />
-            <Stat label="fat" value={`${Math.round(nutrition.fat_g)}g`} />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="secondary">
-              <Flame size={12} className="mr-1" />~ ${nutrition.cost_usd_low.toFixed(2)}–$
-              {nutrition.cost_usd_high.toFixed(2)} / serving
-            </Badge>
-            {prepMinutes && (
-              <Badge variant="secondary">
-                <Clock size={12} className="mr-1" />~ {prepMinutes} min total
-              </Badge>
-            )}
-            {cookMinutes != null && cookMinutes > 0 && (
-              <Badge variant="secondary">
-                <ChefHat size={12} className="mr-1" />{cookMinutes} min cook
-              </Badge>
-            )}
-            {servings && (
-              <Badge variant="secondary">
-                <Users size={12} className="mr-1" />serves {servings}
-              </Badge>
-            )}
-          </div>
-          {nutrition.notes && (
-            <p className="mt-2 text-xs text-muted-foreground">{nutrition.notes}</p>
-          )}
-        </>
-      )}
-
-      {!loading && !nutrition && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Couldn't estimate nutrition right now.
-        </p>
-      )}
-    </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-muted/50 p-2">
-      <div className="text-lg font-bold leading-tight">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
     </div>
   );
 }

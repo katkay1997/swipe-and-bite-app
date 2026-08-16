@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { estimateMealNutrition } from "@/lib/match.functions";
+import mealPlaceholder from "@/assets/meal-placeholder.jpg";
 
 type PinRow = Tables<"pins"> & { meal: Tables<"meals"> | null };
 type Nutrition = {
@@ -199,18 +200,14 @@ function AtePage() {
         ) : null}
       </section>
 
-      {today.length > 0 && (
+      {rows.length > 0 && (
         <div className="mt-6 space-y-5">
-          {(["breakfast", "lunch", "dinner"] as const).map((slot) =>
-            grouped[slot].length > 0 ? (
-              <section key={slot}>
-                <h3 className="mb-2 text-sm font-semibold capitalize text-muted-foreground">
-                  {slot}
-                </h3>
-                <PinGrid rows={grouped[slot]} onRemove={remove} matchIdByMeal={matchIdByMeal} recipeImageByMeal={recipeImageByMeal} />
-              </section>
-            ) : null,
-          )}
+          <section>
+            <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
+              Logged meals
+            </h3>
+            <PinGrid rows={rows} onRemove={remove} matchIdByMeal={matchIdByMeal} recipeImageByMeal={recipeImageByMeal} />
+          </section>
         </div>
       )}
     </div>
@@ -244,7 +241,7 @@ function PinGrid({
         const imgSrc =
           (p.meal_id ? recipeImageByMeal[p.meal_id] : undefined) ||
           p.meal?.image_url ||
-          "/meal-placeholder.jpg";
+          mealPlaceholder;
         const content = (
           <>
             <img
@@ -254,8 +251,8 @@ function PinGrid({
               className="h-40 w-full object-cover bg-muted"
               onError={(e) => {
                 const el = e.currentTarget;
-                if (el.src.endsWith("/meal-placeholder.jpg")) return;
-                el.src = "/meal-placeholder.jpg";
+                if (el.src.endsWith(mealPlaceholder)) return;
+                el.src = mealPlaceholder;
               }}
             />
             <div className="p-3">
