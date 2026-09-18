@@ -13,9 +13,7 @@ Built as a full stack, production ready web app with authentication, a real data
 ## Features
 
 * **Swipe to match**: drag or tap through a meal deck, with the option to rewind a swipe
-* **Cook or order**: full recipes with ingredients and steps, or nearby restaurant links for takeout
 * **Smart meal timing**: automatically loads breakfast, lunch, or dinner based on the current time
-* **Personalized onboarding**: a quiz sets dietary restrictions, allergies, health conditions, and goals once, then filters every meal from there
 * **Match details**: ingredients, step by step instructions, prep time, estimated cost, and nutrition facts for every saved meal
 * **AI powered nutrition**: Google Gemini fills in nutrition estimates when they are not already available
 * **Restaurant search**: live search finds nearby places that serve a matched meal
