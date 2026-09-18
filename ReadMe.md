@@ -1,99 +1,73 @@
 # Swipe & Bite
 
-Hyper-personalized meal discovery, *swipe right to eat well*.
+**Swipe right on your next meal.** A dating app style experience for deciding what to eat, personalized to your diet, your goals, and the time of day.
 
-This app is for **everybody**, but it's especially for people who want to improve their health
+## About
 
-Problems we face as students:
-- Not knowing enough about nutrition (it might not matter now, but it will later)
-- Can't decide what to eat each day
-- No way to show a nutritionist or doctor what I've been eating
-- Wasting time scrolling through options instead of eating efficiently 
+Swipe & Bite turns "what should I eat" into a quick, visual swipe. Users build a profile with their dietary needs, allergies, health conditions, and goals, then swipe through a curated deck of meals. Right for yes, left for no. The app automatically detects breakfast, lunch, or dinner and serves meals that fit.
 
+Every match is saved. Users can cook the recipe at home with full ingredients and instructions, or order it from a nearby restaurant with one tap. A built in eat log tracks daily calories, protein, carbs, and fat over time.
 
----
-
-## About the Project
-
-Swipe & Bite turns finding your next meal into a swipe experience, like dating apps but for food. You build a profile based on your diet, health conditions, allergies, and goals. Then you swipe through a curated deck of meals — right for "yes," left for "nope." The app figures out whether it's breakfast, lunch, or dinner on its own and serves meals that actually fit your life.
-
-You can choose to **cook at home** or **order takeout**. For cooking, you get full recipes, ingredients, prep time, and nutrition info. For takeout, the app finds nearby restaurants that serve that meal and links you directly to order.
-
-Every match is saved so you can come back to it. The app also tracks what you've actually eaten and shows a daily nutrition summary.
-
----
+Built as a full stack, production ready web app with authentication, a real database, and a live AI integration for nutrition data.
 
 ## Features
 
-- **Swipe to match**, drag cards left or right (or tap the buttons). Liked meals are saved to your matches. You can rewind if you change your mind.
-
-- **Cook or takeout mode**, choose at the start. Cook mode gives you full recipes; takeout mode finds restaurants nearby.
-
-- **Smart meal timing**, the app automatically loads breakfast, lunch, or dinner meals based on the time of day.
-
-- **Onboarding quiz**, set your dietary restrictions, allergies, health conditions, and eating goals once. The app filters everything from there.
-
-- **Match details**, click any saved meal to see ingredients, step-by-step instructions, prep time, estimated cost, and nutrition facts.
-
-- **AI nutrition estimation**, if nutrition data isn't available, Google Gemini fills it in on the fly.
-
-- **Restaurant search**, for takeout matches, the app searches for nearby places that serve that meal using live web search.
-
-- **Eat log**, mark meals as eaten and track your daily calories, protein, carbs, and fat.
-
-- **Settings & profile**, update your preferences, dietary needs, and profile picture any time.
-
-- **Accessibility options**, color-blind mode and reduced motion toggle built in.
-
----
+* **Swipe to match**: drag or tap through a meal deck, with the option to rewind a swipe
+* **Cook or order**: full recipes with ingredients and steps, or nearby restaurant links for takeout
+* **Smart meal timing**: automatically loads breakfast, lunch, or dinner based on the current time
+* **Personalized onboarding**: a quiz sets dietary restrictions, allergies, health conditions, and goals once, then filters every meal from there
+* **Match details**: ingredients, step by step instructions, prep time, estimated cost, and nutrition facts for every saved meal
+* **AI powered nutrition**: Google Gemini fills in nutrition estimates when they are not already available
+* **Restaurant search**: live search finds nearby places that serve a matched meal
+* **Eat log**: mark meals as eaten and see a running daily nutrition summary
+* **Rewards system**: earn badges for cooking milestones and exploring new meals
+* **Profile & settings**: update diet, goals, and profile photo at any time
+* **Accessibility built in**: color blind mode and a reduced motion toggle
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend framework | React 19, TanStack Router, TanStack Start |
-| Styling | Tailwind CSS 4, Radix UI |
-| Animations | Framer Motion |
+| Frontend | React 19, TanStack Router, TanStack Start |
+| Styling | Tailwind CSS 4, Radix UI, Framer Motion |
 | Forms & validation | React Hook Form, Zod |
 | Data fetching | TanStack Query |
-| Database & auth | Supabase (PostgreSQL + Auth + Row-Level Security) |
-| AI nutrition | Google Gemini 2.5 Flash (via Lovable AI Gateway) |
+| Database & auth | Supabase (PostgreSQL, Auth, Row Level Security) |
+| AI nutrition | Google Gemini 2.5 Flash |
 | Restaurant search | Tavily Search API |
-| Deployment | Cloudflare Workers (via Wrangler) |
-| Runtime / bundler | Bun, Vite |
-| Language | TypeScript (end-to-end) |
+| Deployment | Cloudflare Workers |
+| Runtime & bundler | Bun, Vite |
+| Language | TypeScript end to end |
 
----
-
-## How to Run the Project (Localhost)
+## Getting Started
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) or Node.js 18+ installed
-- A Supabase project with credentials (the team's `.env` file covers this)
+* [Bun](https://bun.sh/) or Node.js 18+
+* A Supabase project with credentials
 
-### Steps
+### Installation
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-username/swipe-and-bite.git
-cd swipeandbite
-
-# 2. Install dependencies
+git clone https://github.com/your-username/swipe-and-bite-app.git
+cd swipe-and-bite-app
 bun install
-# or: npm install
+```
 
-# 3. Set up environment variables
-# Create a .env file in the project root with the following:
+Create a `.env` file in the project root:
+
+```
 SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 LOVABLE_API_KEY=your_lovable_api_key
 TAVILY_API_KEY=your_tavily_api_key
+```
 
-# 4. Start the development server
+Start the dev server:
+
+```bash
 bun run dev
-# or: npm run dev
 ```
 
 The app runs at `http://localhost:5173` by default.
@@ -101,11 +75,8 @@ The app runs at `http://localhost:5173` by default.
 ### Other Scripts
 
 ```bash
-bun run build      # Production build
-bun run preview    # Preview the production build locally
-bun run lint       # Run ESLint
-bun run format     # Format code with Prettier
+bun run build      # production build
+bun run preview    # preview the production build locally
+bun run lint        # run ESLint
+bun run format      # format code with Prettier
 ```
-
-
-
