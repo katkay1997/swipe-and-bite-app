@@ -31,9 +31,14 @@ import {
   getEquipment,
   getSweetMessage,
   summarizeAllergies,
+  unwrapMealRecipe,
+  type MealWithRecipe,
+  type Recipe as DbRecipeRow,
 } from "@/lib/meal-helpers";
 
-type MatchRow = Tables<"matches"> & { meal: Tables<"meals"> | null };
+type MatchRow = Tables<"matches"> & {
+  meal: (Tables<"meals"> & { recipes: DbRecipeRow | DbRecipeRow[] | null }) | null;
+};
 type RecipeData = {
   image_url: string | null;
   source_url: string | null;
@@ -47,6 +52,26 @@ type RecipeData = {
   total_minutes: number | null;
   servings: number | null;
 };
+
+function toRecipeData(r: DbRecipeRow): RecipeData {
+  return {
+    image_url: r.image_url,
+    source_url: r.source_url,
+    source_domain: r.source_domain,
+    title: r.title,
+    summary: r.summary,
+    ingredients: Array.isArray(r.ingredients)
+      ? (r.ingredients as string[]).filter((x): x is string => typeof x === "string")
+      : [],
+    steps: Array.isArray(r.steps)
+      ? (r.steps as string[]).filter((x): x is string => typeof x === "string")
+      : [],
+    prep_minutes: r.prep_minutes,
+    cook_minutes: r.cook_minutes,
+    total_minutes: r.total_minutes,
+    servings: r.servings,
+  };
+}
 
 export const Route = createFileRoute("/app/match/$id")({
   component: MatchDetailPage,
@@ -67,7 +92,7 @@ function MatchDetailPage() {
       const [{ data }, { data: prefs }] = await Promise.all([
         supabase
           .from("matches")
-          .select("*, meal:meals(*)")
+          .select("*, meal:meals!inner(*, recipes!inner(*))")
           .eq("id", id)
           .eq("user_id", userId)
           .maybeSingle(),
@@ -99,13 +124,24 @@ function MatchDetailPage() {
   }
 
   const meal = match.meal;
+  const paired = unwrapMealRecipe(meal);
+  if (!paired) {
+    return (
+      <div className="py-12 text-center">
+        <h1 className="font-display text-2xl font-bold">Recipe not found</h1>
+        <Button className="mt-4 rounded-full" onClick={() => navigate({ to: "/app/matches" })}>
+          Back to matches
+        </Button>
+      </div>
+    );
+  }
 
   async function markAte() {
-    if (!meal || !userId) return;
+    if (!paired || !userId) return;
     const { error } = await supabase
       .from("pins")
       .upsert(
-        { user_id: userId, meal_id: meal.id },
+        { user_id: userId, meal_id: paired.id },
         { onConflict: "user_id,meal_id", ignoreDuplicates: true }
       );
     if (error) {
@@ -121,7 +157,7 @@ function MatchDetailPage() {
   return (
     <div className="pb-20">
       <RecipeHeader
-        meal={meal}
+        meal={paired}
         userAllergies={userAllergies}
         onBack={() => navigate({ to: "/app/matches" })}
         onAte={markAte}
@@ -136,17 +172,23 @@ function RecipeHeader({
   onBack,
   onAte,
 }: {
-  meal: Tables<"meals">;
+  meal: MealWithRecipe;
   userAllergies: string[];
   onBack: () => void;
   onAte: () => void;
 }) {
   const enrich = useServerFn(enrichMealRecipe);
-  const [recipe, setRecipe] = useState<RecipeData | null>(null);
-  const [recipeLoading, setRecipeLoading] = useState(true);
+  const [recipe, setRecipe] = useState<RecipeData>(() => toRecipeData(meal.recipes));
+  const [recipeLoading, setRecipeLoading] = useState(meal.recipes.enrichment_status !== "ready");
 
   useEffect(() => {
     console.log("RECIPE EFFECT FIRING", meal.id);
+    // Paired recipe is already ready — skip enrichment network path.
+    if (meal.recipes.enrichment_status === "ready") {
+      setRecipe(toRecipeData(meal.recipes));
+      setRecipeLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setRecipeLoading(true);
@@ -169,6 +211,9 @@ function RecipeHeader({
             total_minutes: res.recipe.total_minutes,
             servings: res.recipe.servings,
           });
+        } else if (!cancelled) {
+          // Always keep the paired recipes row visible.
+          setRecipe(toRecipeData(meal.recipes));
         }
       } finally {
         if (!cancelled) setRecipeLoading(false);
@@ -177,19 +222,19 @@ function RecipeHeader({
     return () => {
       cancelled = true;
     };
-  }, [meal.id, enrich]);
+  }, [meal.id, enrich, meal.recipes]);
 
-  const heroImage = recipe?.image_url || meal.image_url;
-  const totalMinutes = recipe?.total_minutes ?? recipe?.prep_minutes ?? meal.prep_minutes;
+  const heroImage = recipe.image_url || meal.image_url;
+  const totalMinutes = recipe.total_minutes ?? recipe.prep_minutes ?? meal.prep_minutes;
   const spice = getSpiceLevel(meal);
   const allergyInfo = useMemo(
     () =>
       summarizeAllergies(
         userAllergies,
-        recipe?.ingredients ?? [],
+        recipe.ingredients ?? [],
         `${meal.name ?? ""} ${meal.cuisine ?? ""} ${meal.instructions ?? ""}`,
       ),
-    [userAllergies, recipe?.ingredients, meal.name, meal.cuisine, meal.instructions],
+    [userAllergies, recipe.ingredients, meal.name, meal.cuisine, meal.instructions],
   );
 
   return (
@@ -220,7 +265,7 @@ function RecipeHeader({
                   <Clock size={12} /> {totalMinutes} min
                 </span>
               )}
-              {recipe?.servings && (
+              {recipe.servings && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
                   <Users size={12} /> serves {recipe.servings}
                 </span>
@@ -268,13 +313,13 @@ function CookView({
   recipe,
   recipeLoading,
 }: {
-  meal: Tables<"meals">;
-  recipe: RecipeData | null;
+  meal: MealWithRecipe;
+  recipe: RecipeData;
   recipeLoading: boolean;
 }) {
-  const ingredients = recipe?.ingredients ?? [];
+  const ingredients = recipe.ingredients ?? [];
   const culinary = getCulinaryLevel(
-    recipe?.total_minutes ?? recipe?.prep_minutes ?? meal.prep_minutes,
+    recipe.total_minutes ?? recipe.prep_minutes ?? meal.prep_minutes,
     ingredients.length,
   );
   const equipment = getEquipment(meal);
@@ -300,7 +345,7 @@ function CookView({
         />
       </div>
 
-      {recipeLoading && !recipe && (
+      {recipeLoading && ingredients.length === 0 && recipe.steps.length === 0 && (
         <section className="rounded-2xl bg-card p-6 text-center shadow-card">
           <Loader2 className="mx-auto animate-spin text-romance" />
           <p className="mt-2 text-sm text-muted-foreground">
@@ -309,7 +354,7 @@ function CookView({
         </section>
       )}
 
-      {recipe?.summary && (
+      {recipe.summary && (
         <section className="rounded-2xl bg-card p-4 shadow-card">
           <p className="text-sm leading-relaxed text-foreground/85">{recipe.summary}</p>
           {recipe.source_url && (
@@ -367,7 +412,7 @@ function CookView({
         </div>
       </section>
 
-      {recipe && recipe.steps.length > 0 && (
+      {recipe.steps.length > 0 && (
         <section className="rounded-2xl bg-card p-4 shadow-card">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Step by step
@@ -385,13 +430,13 @@ function CookView({
         </section>
       )}
 
-      {!recipeLoading && (!recipe || recipe.steps.length === 0) && (
+      {!recipeLoading && recipe.steps.length === 0 && (
         <section className="rounded-2xl bg-card p-4 shadow-card">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Instructions
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Recipe details coming soon.
+            {meal.instructions?.trim() || "Recipe details coming soon."}
           </p>
         </section>
       )}

@@ -60,7 +60,7 @@ function AtePage() {
       const [{ data: pinsData }, { data: matchesData }] = await Promise.all([
         supabase
           .from("pins")
-          .select("*, meal:meals(*)")
+          .select("*, meal:meals!inner(*, recipes!inner(meal_id, image_url))")
           .eq("user_id", userId)
           .order("created_at", { ascending: false }),
         supabase.from("matches").select("id, meal_id").eq("user_id", userId),
@@ -71,18 +71,18 @@ function AtePage() {
       for (const m of matchesData || []) if (m.meal_id) map[m.meal_id] = m.id;
       setMatchIdByMeal(map);
 
-      const mealIds = Array.from(new Set(pins.map((p) => p.meal_id).filter(Boolean) as string[]));
-      if (mealIds.length > 0) {
-        const { data: recipes } = await supabase
-          .from("recipes")
-          .select("meal_id, image_url")
-          .in("meal_id", mealIds);
-        const rmap: Record<string, string> = {};
-        for (const r of recipes || []) {
-          if (r.meal_id && r.image_url) rmap[r.meal_id] = r.image_url;
-        }
-        setRecipeImageByMeal(rmap);
+      const rmap: Record<string, string> = {};
+      for (const p of pins) {
+        const meal = p.meal as
+          | (Tables<"meals"> & {
+              recipes?: { meal_id: string; image_url: string | null } | { meal_id: string; image_url: string | null }[] | null;
+            })
+          | null;
+        if (!meal) continue;
+        const recipes = Array.isArray(meal.recipes) ? meal.recipes[0] : meal.recipes;
+        if (recipes?.image_url) rmap[meal.id] = recipes.image_url;
       }
+      setRecipeImageByMeal(rmap);
       setLoading(false);
     })();
   }, [userId]);

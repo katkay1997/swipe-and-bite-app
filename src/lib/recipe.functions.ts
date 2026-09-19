@@ -13,6 +13,10 @@ const ENRICHMENT_ENABLED = true;
 /**
  * Real-recipe enrichment pipeline — Tavily + Firecrawl edition.
  *
+ * meals ↔ recipes is a mandatory 1:1 (DB-enforced). Every meal already has a
+ * recipes row; this handler upgrades that row (pending/failed → ready) and
+ * never creates a meal without a recipe.
+ *
  * Flow:
  *  1. Check recipes table — if enrichment_status = 'ready' return cached.
  *  2. Tavily Search finds the best matching recipe URL from allowed food sites.
@@ -334,10 +338,10 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
 
 
 
-      // 2. Look up meal
+      // 2. Look up meal (must have paired recipe — enforced by DB 1:1)
       const { data: meal, error: mealErr } = await db
         .from("meals")
-        .select("id,name,cuisine,image_url")
+        .select("id,name,cuisine,image_url, recipes!inner(meal_id)")
         .eq("id", data.mealId)
         .single();
       if (mealErr || !meal) return { recipe: null, error: "Meal not found" };
@@ -567,5 +571,38 @@ export const enrichMealRecipe = createServerFn({ method: "POST" })
     } catch (e) {
       console.error("[enrich] catch-11:", e instanceof Error ? e.message : String(e));
       return { recipe: null, error: "Recipe agent failed" };
+    }
+  });
+
+/**
+ * Insert a meal and its recipes row in one DB transaction via
+ * public.create_meal_with_recipe (mandatory 1:1 helper).
+ */
+export const createMealWithRecipe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { meal: Record<string, unknown>; recipe?: Record<string, unknown> }) =>
+    z
+      .object({
+        meal: z.record(z.string(), z.unknown()),
+        recipe: z.record(z.string(), z.unknown()).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }): Promise<{ mealId: string | null; error: string | null }> => {
+    try {
+      const mod = await import("@/integrations/supabase/client.server");
+      const admin = mod.supabaseAdmin;
+      const { data: mealId, error } = await admin.rpc("create_meal_with_recipe", {
+        p_meal: data.meal as never,
+        p_recipe: (data.recipe ?? {}) as never,
+      });
+      if (error || !mealId) {
+        console.error("[createMealWithRecipe]", error);
+        return { mealId: null, error: error?.message ?? "Failed to create meal+recipe" };
+      }
+      return { mealId: mealId as string, error: null };
+    } catch (e) {
+      console.error("[createMealWithRecipe]", e instanceof Error ? e.message : String(e));
+      return { mealId: null, error: "Failed to create meal+recipe" };
     }
   });

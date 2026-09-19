@@ -63,7 +63,7 @@ function MatchesPage() {
       setLoading(true);
       const { data } = await supabase
         .from("matches")
-        .select("*, meal:meals(*)")
+        .select("*, meal:meals!inner(*, recipes!inner(meal_id, image_url))")
         .eq("user_id", uid)
         .eq("archived", false)
         .eq("mode", "cook")
@@ -71,18 +71,18 @@ function MatchesPage() {
       const rowsData = (data as MatchRow[]) || [];
       setRows(rowsData);
 
-      const mealIds = Array.from(new Set(rowsData.map((r) => r.meal?.id).filter(Boolean) as string[]));
-      if (mealIds.length > 0) {
-        const { data: recipes } = await supabase
-          .from("recipes")
-          .select("meal_id, image_url")
-          .in("meal_id", mealIds);
-        const rmap: Record<string, string> = {};
-        for (const r of recipes || []) {
-          if (r.meal_id && r.image_url) rmap[r.meal_id] = r.image_url;
-        }
-        setRecipeImageByMeal(rmap);
+      const rmap: Record<string, string> = {};
+      for (const row of rowsData) {
+        const meal = row.meal as
+          | (Tables<"meals"> & {
+              recipes?: { meal_id: string; image_url: string | null } | { meal_id: string; image_url: string | null }[] | null;
+            })
+          | null;
+        if (!meal) continue;
+        const recipes = Array.isArray(meal.recipes) ? meal.recipes[0] : meal.recipes;
+        if (recipes?.image_url) rmap[meal.id] = recipes.image_url;
       }
+      setRecipeImageByMeal(rmap);
       setLoading(false);
     }
   }, [userId]);

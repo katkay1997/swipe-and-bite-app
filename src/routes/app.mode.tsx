@@ -3,6 +3,8 @@ import { ChefHat, Sun, Moon, Sunrise, IceCream, WheatOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { MEALS_WITH_RECIPE_SELECT, unwrapMealRecipe } from "@/lib/meal-helpers";
+import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/app/mode")({
   component: ModePage,
@@ -83,11 +85,20 @@ function ModePage() {
     (async () => {
       const [{ data: swipes }, { data: meals }] = await Promise.all([
         supabase.from("swipes").select("meal_id").eq("user_id", userId).eq("mode", "cook"),
-        supabase.from("meals").select("*").eq("is_alcohol", false).limit(500),
+        supabase
+          .from("meals")
+          .select(MEALS_WITH_RECIPE_SELECT)
+          .eq("is_alcohol", false)
+          .limit(500),
       ]);
       if (cancelled || !meals) return;
+      const paired = (
+        meals as Array<Tables<"meals"> & { recipes: Tables<"recipes"> | Tables<"recipes">[] }>
+      )
+        .map(unwrapMealRecipe)
+        .filter((m): m is NonNullable<typeof m> => Boolean(m));
       const swiped = new Set((swipes || []).map((s) => s.meal_id));
-      const matchesSlot = (m: typeof meals[number]) => {
+      const matchesSlot = (m: (typeof paired)[number]) => {
         const times = Array.isArray(m.meal_time) ? m.meal_time : [];
         const tags = Array.isArray(m.tags) ? m.tags : [];
         if (slot === "dessert") {
@@ -99,14 +110,14 @@ function ModePage() {
         }
         return times.includes(slot);
       };
-      const isGF = (m: typeof meals[number]) => {
+      const isGF = (m: (typeof paired)[number]) => {
         const tags = (Array.isArray(m.tags) ? m.tags : []).map((t) => t?.toLowerCase() ?? "");
         const flags = (Array.isArray(m.health_flags) ? m.health_flags : []).map((t) => t?.toLowerCase() ?? "");
         return tags.some((t) => t.includes("gluten-free") || t.includes("gluten free")) ||
           flags.some((t) => t.includes("gluten-free") || t.includes("gluten free"));
       };
 
-      let pool = meals.filter((m) => !swiped.has(m.id) && matchesSlot(m));
+      let pool = paired.filter((m) => !swiped.has(m.id) && matchesSlot(m));
       if (gfOnly) pool = pool.filter(isGF);
       const fresh = pool.slice(0, 20);
 
@@ -117,9 +128,10 @@ function ModePage() {
       }
       // Warm browser image cache
       fresh.forEach((m) => {
-        if (!m.image_url || !/^https?:\/\//.test(m.image_url)) return;
+        const url = m.recipes.image_url ?? m.image_url;
+        if (!url || !/^https?:\/\//.test(url)) return;
         const img = new Image();
-        img.src = m.image_url;
+        img.src = url;
       });
     })();
 
