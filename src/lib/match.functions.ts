@@ -151,7 +151,7 @@ export const searchGroceryStores = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // TEMPORARY KILL SWITCH — hard-disables the Tavily grocery-store search
     // network call below. Flip to true to re-enable.
-    const GROCERY_SEARCH_ENABLED = false;
+    const GROCERY_SEARCH_ENABLED = true;
     if (!GROCERY_SEARCH_ENABLED) {
       return { results: [], answer: null, error: "Grocery search temporarily disabled" };
     }
